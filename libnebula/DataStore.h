@@ -27,6 +27,7 @@ namespace Nebula
 	 */
 	class DataStore
 	{
+	public:
 		/**
 		 * Retrives a file from the data store for the given path, and writes
 		 * the result to the output stream
