@@ -63,7 +63,7 @@ namespace Nebula
 
 		bool cancelRequested() { return mCancelRequested; }
 
-		void cancel()
+		void requestCancel()
 		{
 			mCancelRequested = true;
 		}
@@ -195,6 +195,7 @@ namespace Nebula
 		bool hasError() const { return mData->hasError(); }
 		std::string errorMessage() const { return mData->errorMessage(); }
 		
+		void cancel() { mData->requestCancel(); }
 		void wait() const { mData->wait(); }
 		
 		template<typename U>
