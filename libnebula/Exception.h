@@ -33,6 +33,7 @@ public: \
 	DEFINE_EXCEPTION(RepositoryLockedException);
 	DEFINE_EXCEPTION(InvalidRepositoryException);
 	DEFINE_EXCEPTION(InvalidDataException);
+	DEFINE_EXCEPTION(EncryptionFailedException);
 	
 #undef DEFINE_EXCEPTION
 
