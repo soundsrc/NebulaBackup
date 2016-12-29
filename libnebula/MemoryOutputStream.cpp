@@ -13,21 +13,31 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-
-#pragma once
+#include <string.h>
+#include "MemoryOutputStream.h"
 
 namespace Nebula
 {
-	/**
-	 * Output stream interface
-	 */
-	class OutputStream
+	MemoryOutputStream::MemoryOutputStream(uint8_t *buffer, size_t size)
+	: mStart(buffer)
+	, mNext(buffer)
+	, mEnd(buffer + size)
 	{
-	public:
-		/**
-		 * Writes to data the output stream.
-		 * Returns number of bytes actually written, or -1 on error.
-		 */
-		virtual int write(const void *data, int size) = 0;
-	};
+	}
+	
+	int MemoryOutputStream::write(const void *data, int size)
+	{
+		if(mNext >= mEnd) {
+			return -1;
+		}
+		
+		if(size > mEnd - mNext) {
+			size = mEnd - mNext;
+		}
+		
+		memcpy(mNext, data, size);
+		mNext += size;
+		
+		return size;
+	}
 }

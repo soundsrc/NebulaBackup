@@ -28,6 +28,6 @@ namespace Nebula
 		 * Reads data from the input stream.
 		 * Return -1 on EOF or number of bytes read.
 		 */
-		virtual int read(void *data, int bytes) = 0;
+		virtual int read(void *data, int size) = 0;
 	};
 }

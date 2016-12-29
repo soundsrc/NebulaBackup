@@ -16,18 +16,29 @@
 
 #pragma once
 
+#include <stddef.h>
+#include <stdint.h>
+#include "OutputStream.h"
+
 namespace Nebula
 {
 	/**
 	 * Output stream interface
 	 */
-	class OutputStream
+	class MemoryOutputStream : public OutputStream
 	{
 	public:
-		/**
-		 * Writes to data the output stream.
-		 * Returns number of bytes actually written, or -1 on error.
-		 */
-		virtual int write(const void *data, int size) = 0;
+		MemoryOutputStream(uint8_t *buffer, size_t size);
+		
+		const uint8_t *data() const { return mStart; }
+		size_t size() const { return mNext - mStart; }
+
+		void reset() { mNext = mStart; }
+
+		virtual int write(const void *data, int size) override;
+	private:
+		uint8_t *mStart;
+		uint8_t *mNext;
+		uint8_t *mEnd;
 	};
 }
