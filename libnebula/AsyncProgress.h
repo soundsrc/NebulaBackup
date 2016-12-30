@@ -120,7 +120,7 @@ namespace Nebula
 		
 		void wait() const {
 			std::unique_lock<std::mutex> lock(mMutex);
-			while(!mIsReady) {
+			while(!mIsDone) {
 				mDoneCondition.wait(lock);
 			}
 		}
@@ -178,8 +178,8 @@ namespace Nebula
 		OnProgressCallback mProgressCallback;
 		OnErrorCallback mOnErrorCallback;
 
-		std::mutex mMutex;
-		std::condition_variable mDoneCondition;
+		mutable std::mutex mMutex;
+		mutable std::condition_variable mDoneCondition;
 	};
 	
 	template<typename T>
