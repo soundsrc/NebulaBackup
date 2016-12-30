@@ -153,3 +153,39 @@ TEST(DataStoreTests, GetNotEnoughSpace) {
 	
 	EXPECT_FALSE(exists(tmpPath));
 }
+
+TEST(DataStoreTests, Deletion) {
+	using namespace boost::filesystem;
+	using namespace Nebula;
+	
+	path tmpPath = unique_path();
+	EXPECT_TRUE( create_directory(tmpPath) );
+	
+	{
+		ScopedExit onExit([tmpPath] { remove_all(tmpPath); });
+		
+		FileDataStore ds(tmpPath.c_str());
+
+		// delete non-existant object
+		AsyncProgress<bool> progress = ds.unlink("/22333");
+		progress.wait();
+		EXPECT_TRUE(progress.hasError());
+
+		uint8_t data1[4096];
+		arc4random_buf(data1, sizeof(data1));
+		
+		MemoryInputStream dataStream(data1, sizeof(data1));
+		progress = ds.put("/22333", dataStream);
+		progress.wait();
+		EXPECT_TRUE(progress.isReady());
+		EXPECT_TRUE(progress.result());
+
+		progress = ds.unlink("/22333");
+		progress.wait();
+		EXPECT_TRUE(progress.isReady());
+		EXPECT_TRUE(progress.result());
+	}
+	
+	EXPECT_FALSE(exists(tmpPath));
+
+}
