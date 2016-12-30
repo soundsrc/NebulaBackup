@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "AsyncProgress.h"
+
 namespace Nebula
 {
 	class OutputStream;
@@ -35,23 +37,23 @@ namespace Nebula
 		 * @param stream Output stream
 		 * @returns False if the object was not found at the path, true otherwise
 		 */
-		virtual bool get(const char *path, OutputStream& stream) = 0;
+		virtual AsyncProgress<bool> get(const char *path, OutputStream& stream) = 0;
 		
 		/**
 		 * Writes a file to the data store given the supplied data stream
 		 */
-		virtual void put(const char *path, InputStream& stream) = 0;
+		virtual AsyncProgress<bool> put(const char *path, InputStream& stream) = 0;
 		
 		/**
 		 * Lists the files at the given path, recursively. The callback is
 		 * invoked for each file listed and invoked with nullptr when no more
 		 * paths are to be listed.
 		 */
-		virtual void list(const char *path, void (*listCallback)(const char *, void *), void *userData = nullptr) = 0;
+		virtual AsyncProgress<bool> list(const char *path, void (*listCallback)(const char *, void *), void *userData = nullptr) = 0;
 		 
 		/**
 		 * Removes a file from the data store.
 		 */
-		virtual bool unlink(const char *path) = 0;
+		virtual AsyncProgress<bool> unlink(const char *path) = 0;
 	};
 }
