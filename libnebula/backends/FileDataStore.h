@@ -28,7 +28,7 @@ namespace Nebula
 
 		virtual AsyncProgress<bool> get(const char *path, OutputStream& stream) override;
 		virtual AsyncProgress<bool> put(const char *path, InputStream& stream) override;
-		virtual AsyncProgress<bool> list(const char *path, void (*listCallback)(const char *, void *), void *userData) override;
+		virtual AsyncProgress<bool> list(const char *path, std::function<void (const char *, void *)> listCallback, void *userData) override;
 		virtual AsyncProgress<bool> unlink(const char *path) override;
 	private:
 		std::string mStoreDirectory;

@@ -126,19 +126,21 @@ namespace Nebula
 		return AsyncProgress<bool>(progress);
 	}
 	
-	AsyncProgress<bool> FileDataStore::list(const char *path, void (*listCallback)(const char *, void *), void *userData)
+	AsyncProgress<bool> FileDataStore::list(const char *path, std::function<void (const char *, void *)> listCallback, void *userData)
 	{
 		std::shared_ptr<AsyncProgressData<bool>> progress = std::make_shared<AsyncProgressData<bool>>();
 
 		using namespace boost;
+		filesystem::path fullPath = filesystem::path(mStoreDirectory) / path;
 
-		filesystem::recursive_directory_iterator dirIterator(path);
+		filesystem::recursive_directory_iterator dirIterator(fullPath);
 		
 		for(auto& file : dirIterator)
 		{
 			if(!filesystem::is_directory(file))
 			{
-				listCallback(file.path().c_str(), userData);
+				filesystem::path relativePath = filesystem::relative(file.path(), fullPath);
+				listCallback((filesystem::path("/") / relativePath).make_preferred().c_str(), userData);
 			}
 		}
 		

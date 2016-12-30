@@ -49,7 +49,7 @@ namespace Nebula
 		 * invoked for each file listed and invoked with nullptr when no more
 		 * paths are to be listed.
 		 */
-		virtual AsyncProgress<bool> list(const char *path, void (*listCallback)(const char *, void *), void *userData = nullptr) = 0;
+		virtual AsyncProgress<bool> list(const char *path, std::function<void (const char *, void *)> listCallback, void *userData = nullptr) = 0;
 		 
 		/**
 		 * Removes a file from the data store.
