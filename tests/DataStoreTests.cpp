@@ -103,6 +103,43 @@ TEST(DataStoreTests, PutAndGetWithSubPaths) {
 	EXPECT_FALSE(exists(tmpPath));
 }
 
+TEST(DataStoreTests, PutOverwrite) {
+	using namespace boost::filesystem;
+	using namespace Nebula;
+	
+	path tmpPath = unique_path();
+	EXPECT_TRUE( create_directory(tmpPath) );
+	
+	{
+		ScopedExit onExit([tmpPath] { remove_all(tmpPath); });
+		
+		FileDataStore ds(tmpPath.c_str());
+		
+		uint8_t data1[4096];
+		uint8_t data2[4096];
+		
+		arc4random_buf(data1, sizeof(data1));
+		arc4random_buf(data2, sizeof(data2));
+		
+		MemoryInputStream dataStream(data1, sizeof(data1));
+		AsyncProgress<bool> progress = ds.put("/subpath/xxx", dataStream);
+		progress.wait();
+		EXPECT_FALSE(progress.hasError());
+		EXPECT_TRUE(progress.isReady());
+		EXPECT_TRUE(progress.result());
+		
+		// put should return false status if attempt overwrite
+		MemoryInputStream dataStream2(data2, sizeof(data2));
+		progress = ds.put("/subpath/xxx", dataStream2);
+		progress.wait();
+		EXPECT_FALSE(progress.hasError());
+		EXPECT_TRUE(progress.isReady());
+		EXPECT_FALSE(progress.result());
+	}
+	
+	EXPECT_FALSE(exists(tmpPath));
+}
+
 TEST(DataStoreTests, GetNotFound) {
 	using namespace boost::filesystem;
 	using namespace Nebula;
