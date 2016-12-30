@@ -18,14 +18,25 @@
 
 #include <vector>
 #include <inttypes.h>
-#include "libnebula/AsyncProgress.h"
+#include "AsyncProgress.h"
+#include "Snapshot.h"
 
 namespace Nebula
 {
 	class DataStore;
+	
+	/**
+	 * Represents a backup repository. The repository is backed by a data store
+	 * backend (i.e. SSH, S3, etc..).
+	 */
 	class Repository
 	{
 	public:
+		/**
+		 * Creates a new instance of repository, supplying a backend data store.
+		 * If the repository is an existing repository, then you should call
+		 * unlockRepository
+		 */
 		Repository(DataStore *dataStore);
 		~Repository();
 		
@@ -34,20 +45,43 @@ namespace Nebula
 		 * The files and data structures will be setup using
 		 * the supplied password.
 		 */
-		void initializeNew(const char *password);
+		AsyncProgress<bool> initializeRepository(const char *password);
 		
 		/**
-		 * Unlocks an existing repository.
+		 * Unlocks an existing repository. This should be called before
+		 * any other operation except the creation of a new repository.
+		 * Returns true if the supplied password is able to unlock the
+		 * correct.
 		 */
-		bool unlock(const char *password);
+		AsyncProgress<bool> unlockRepository(const char *password);
+
+		/**
+		 * Compacts a repository.
+		 * The repository is scanned for snapshots and each object is checked
+		 * to enture there is a reference to the object. At the end of the scan,
+		 * objects which have no references are removed.
+		 */
+		AsyncProgress<bool> compactRepository();
+		
+		/**
+		 * Initiates a change password operation.
+		 * @param oldPassword
+		 */
+		AsyncProgress<bool> changePassword(const char *oldPassword, const char *newPassword);
 		
 		/**
 		 * Creates a new snapshot and uploads the files in the filelist.
 		 */
-		bool createSnapshot(const char *snapshotName, const std::vector<const char *>& fileList);
+		Snapshot createSnapshot(const char *snapshotName);
 		
-		
+		/**
+		 * Obtains a list of files in a snapshot
+		 */
+		void listFilesInSnapshot(const char *snapshotName, void (*fileListReceiver)(const char *));
+
 	private:
-		uint8_t mKey[32];
+		DataStore *mDataStore;
+		uint8_t *mEncKey;
+		uint8_t *mMacKey;
 	};
 }
