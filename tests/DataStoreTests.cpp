@@ -13,11 +13,43 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-#include "libnebula/BackEnds.h"
+#include <string.h>
+#include <boost/filesystem.hpp>
+#include "libnebula/backends/FileDataStore.h"
+#include "libnebula/MemoryInputStream.h"
+#include "libnebula/MemoryOutputStream.h"
 #include "libnebula/Repository.h"
+#include "libnebula/ScopedExit.h"
 #include "gtest/gtest.h"
 
-TEST(RepositoryTests, Create) {
+TEST(DataStoreTests, Put) {
 
-	EXPECT_EQ(1, 1);
+	using namespace boost::filesystem;
+	using namespace Nebula;
+
+	path tmpPath = unique_path();
+	EXPECT_TRUE( create_directory(tmpPath) );
+	
+	{
+		ScopedExit onExit([tmpPath] { remove_all(tmpPath); });
+
+		FileDataStore ds(tmpPath.c_str());
+		
+		printf("%s\n", tmpPath.c_str());
+		uint8_t data1[4096];
+		uint8_t data2[4096];
+		
+		arc4random_buf(data1, sizeof(data1));
+		arc4random_buf(data2, sizeof(data2));
+		
+		MemoryInputStream dataStream(data1, sizeof(data1));
+		ds.put("/dddddd", dataStream).wait();
+		
+		MemoryOutputStream outStream(data2, sizeof(data2));
+		ds.get("/dddddd", outStream);
+		
+		EXPECT_TRUE(memcmp(data1, data2, sizeof(data1)) == 0);
+	}
+
+	EXPECT_FALSE(exists(tmpPath));
 }
