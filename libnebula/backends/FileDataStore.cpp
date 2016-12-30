@@ -89,6 +89,12 @@ namespace Nebula
 		filesystem::path fullPath = filesystem::path(mStoreDirectory) / path;
 		std::async([this, fullPath, &stream, &progress]() -> void {
 			try {
+				// do not allow overwrite
+				if(filesystem::exists(fullPath)) {
+					progress->setReady(false);
+					return;
+				}
+
 				if(!filesystem::exists(fullPath.parent_path()))
 				{
 					filesystem::create_directories(fullPath.parent_path());
