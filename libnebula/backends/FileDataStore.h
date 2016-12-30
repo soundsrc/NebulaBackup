@@ -26,10 +26,10 @@ namespace Nebula
 	public:
 		FileDataStore(const char *storeDirectory);
 
-		virtual bool get(const char *path, OutputStream& stream) override;
-		virtual void put(const char *path, InputStream& stream) override;
-		virtual void list(const char *path, void (*listCallback)(const char *, void *), void *userData) override;
-		virtual bool unlink(const char *path) override;
+		virtual AsyncProgress<bool> get(const char *path, OutputStream& stream) override;
+		virtual AsyncProgress<bool> put(const char *path, InputStream& stream) override;
+		virtual AsyncProgress<bool> list(const char *path, void (*listCallback)(const char *, void *), void *userData) override;
+		virtual AsyncProgress<bool> unlink(const char *path) override;
 	private:
 		std::string mStoreDirectory;
 	};
