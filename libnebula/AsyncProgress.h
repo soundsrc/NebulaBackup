@@ -192,6 +192,7 @@ namespace Nebula
 		bool isReady() const { return mData->isReady(); }
 		float progress() const { return mData->progress(); }
 		bool hasError() const { return mData->hasError(); }
+		const T& result() const { return mData->result(); }
 		std::string errorMessage() const { return mData->errorMessage(); }
 		
 		void cancel() { mData->requestCancel(); }
