@@ -150,10 +150,10 @@ namespace Nebula
 		
 		filesystem::path fullPath = filesystem::path(mStoreDirectory) / path;
 		if(!filesystem::remove(fullPath)) {
-			throw FileIOException(fullPath.string() + ": Failed to remove.");
+			progress->setError(fullPath.string() + ": Failed to remove object.");
+		} else {
+			progress->setReady(true);
 		}
-		
-		progress->setReady(true);
 		return AsyncProgress<bool>(progress);
 	}
 }
