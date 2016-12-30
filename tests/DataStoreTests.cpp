@@ -14,6 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 #include <memory>
+#include <set>
 #include <vector>
 #include <string.h>
 #include <boost/filesystem.hpp>
@@ -186,6 +187,62 @@ TEST(DataStoreTests, GetNotEnoughSpace) {
 		progress.wait();
 		EXPECT_FALSE(progress.isReady());
 		EXPECT_TRUE(progress.hasError());
+	}
+	
+	EXPECT_FALSE(exists(tmpPath));
+}
+
+TEST(DataStoreTests, List) {
+	
+	using namespace boost::filesystem;
+	using namespace Nebula;
+	
+	path tmpPath = unique_path();
+	EXPECT_TRUE( create_directory(tmpPath) );
+	
+	{
+		ScopedExit onExit([tmpPath] { remove_all(tmpPath); });
+		uint8_t buffer[32];
+		arc4random_buf(buffer, sizeof(buffer));
+		
+		FileDataStore ds(tmpPath.c_str());
+		
+		static const char *paths[] = {
+			"/blah",
+			"/sub/a.txt",
+			"/sub/b.txt",
+			"/sub/C.txt",
+			"/sub2/a.txt"
+			"/sub2/b.txt",
+			"/sub2/x/a.txt",
+			"/sub2/x/b.txt",
+			"/sub2/x/c.txt",
+			"/x.txt",
+			"/a.txt"
+		};
+		
+		std::set<std::string> pathSet;
+		for(int i = 0; i < sizeof(paths) / sizeof(paths[0]); ++i)
+		{
+			MemoryInputStream m(buffer, sizeof(buffer));
+			AsyncProgress<bool> progress = ds.put(paths[i], m);
+			progress.wait();
+			EXPECT_TRUE(progress.isReady());
+			EXPECT_TRUE(progress.result());
+			pathSet.insert(paths[i]);
+		}
+		
+		ds.list("/", [&pathSet](const char *path, void*) {
+			if(path) {
+				printf("%s\n", path);
+				auto it = pathSet.find(path);
+				EXPECT_NE(it, pathSet.end());
+				if(it != pathSet.end()) {
+					pathSet.erase(it);
+				}
+			}
+		}, nullptr).wait();
+		EXPECT_EQ(pathSet.size(), 0);
 	}
 	
 	EXPECT_FALSE(exists(tmpPath));
