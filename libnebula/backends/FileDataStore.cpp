@@ -62,7 +62,9 @@ namespace Nebula
 						progress->setCancelled();
 						return;
 					}
-					stream.write(buffer, (int)n);
+					if(stream.write(buffer, (int)n) < n) {
+						throw DiskQuotaExceededException("Output stream does not have enough space.");
+					}
 				}
 
 				if(n < 0) {
