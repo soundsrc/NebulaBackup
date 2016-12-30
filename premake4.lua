@@ -1,3 +1,11 @@
+
+function nebula_common_includes()
+	includedirs {
+		"thirdparty/libressl/include",
+		"thirdparty/boost"
+	}
+end
+
 solution "NebulaBackup"
 	configurations { "Debug", "Release" }
 	location(_WORKING_DIR)
@@ -14,30 +22,72 @@ solution "NebulaBackup"
 		kind "SharedLib"
 		buildoptions { "-std=c++11", "-stdlib=libc++" }
 		includedirs {
-			".",
-			"thirdparty/libressl/include"
+			"."
 		}
+		nebula_common_includes()
+
 		files { 
 			"libnebula/**.h",
 			"libnebula/**.cpp" 
 		}
 
-		links { "ssl", "crypto" }
+		links { "ssl", "crypto", "boostfilesystem" }
 
 	project "NebulaBackup-cli"
 		kind "ConsoleApp"
 		language "C++"
 		buildoptions { "-std=c++11", "-stdlib=libc++" }
 		includedirs {
-			".",
-			"thirdparty/libressl/include"
+			"."
 		}
+		nebula_common_includes()
+
 		files {
 			"cli/*.h",
 			"cli/*.cpp"
 		}
 
 		links "Nebula"
+
+	project "NebulaBackupTests"
+		kind "ConsoleApp"
+		language "C++"
+		buildoptions { "-std=c++11", "-stdlib=libc++" }
+		includedirs {
+			".",
+			"thirdparty/googletest/googletest/include"
+		}
+		nebula_common_includes()
+
+		files {
+			"tests/*.h",
+			"tests/*.cpp"
+		}
+
+		links { "Nebula", "googletest", "boostfilesystem" }
+
+	project "googletest"
+		kind "StaticLib"
+		language "C++"
+		includedirs {
+			"thirdparty/googletest/googletest",
+			"thirdparty/googletest/googletest/include"
+		}
+		files {
+			"thirdparty/googletest/googletest/src/gtest-all.cc",
+			"thirdparty/googletest/googletest/src/gtest_main.cc"
+		}
+
+	project "boostfilesystem"
+		language "C++"
+		kind "StaticLib"
+		includedirs {
+			"thirdparty/boost"
+		}
+		files {
+			"thirdparty/boost/libs/filesystem/src/*.cpp",
+			"thirdparty/boost/libs/system/src/*.cpp"
+		}
 
 	project "crypto"
 		language "C"
