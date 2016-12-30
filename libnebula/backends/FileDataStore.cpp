@@ -105,7 +105,7 @@ namespace Nebula
 					throw FileIOException(fullPath.string() + ": " + strerror(errno));
 				}
 
-				ScopedExit onExit([fp] { fclose(fp); });
+				ScopedExit onExit([fp] { if(fp) fclose(fp); });
 
 				int n;
 				char buffer[4096];
@@ -114,6 +114,15 @@ namespace Nebula
 						if(ferror(fp)) {
 							throw FileIOException(fullPath.string() + ": Write error.");
 						}
+					}
+					
+					// if cancel has been requested, remove the in progress file
+					if(progress->cancelRequested()) {
+						fclose(fp);
+						fp = nullptr;
+						filesystem::remove(fullPath);
+						progress->setCancelled();
+						return;
 					}
 				}
 				
@@ -125,7 +134,7 @@ namespace Nebula
 		
 		return AsyncProgress<bool>(progress);
 	}
-	
+
 	AsyncProgress<bool> FileDataStore::list(const char *path, std::function<void (const char *, void *)> listCallback, void *userData)
 	{
 		std::shared_ptr<AsyncProgressData<bool>> progress = std::make_shared<AsyncProgressData<bool>>();
