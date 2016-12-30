@@ -19,8 +19,8 @@
 #include <string>
 #include <memory>
 #include <mutex>
+#include <stdexcept>
 #include <condition_variable>
-#include "ErrorCodes.h"
 
 namespace Nebula
 {
@@ -32,8 +32,8 @@ namespace Nebula
 		: mIsDone(false)
 		, mIsReady(false)
 		, mCancelRequested(false)
+		, mCancelled(false)
 		, mProgress(0.0f)
-		, mErrorCode(ErrorCode::NoError)
 		, mOnDoneCallback(nullptr)
 		, mOnCancelledCallback(nullptr)
 		, mProgressCallback(nullptr)
@@ -48,16 +48,15 @@ namespace Nebula
 			mDoneCondition.notify_all();
 		}
 		
-		void setError(ErrorCode errorCode, const std::string& errorMessage)
+		void setError(const std::string& errorMessage)
 		{
 			std::lock_guard<std::mutex> lock(mMutex);
-			mErrorCode = errorCode;
 			mErrorMessage = errorMessage;
 			mIsDone = true;
 			mDoneCondition.notify_all();
 			
 			if(mOnErrorCallback) {
-				mOnErrorCallback(errorCode, errorMessage);
+				mOnErrorCallback(errorMessage);
 			}
 		}
 
@@ -75,8 +74,9 @@ namespace Nebula
 				if(mOnCancelledCallback) {
 					mOnCancelledCallback();
 				}
+				mCancelled = true;
 			}
-			setError(ErrorCode::UserCancelled, "User cancelled.");
+			setError("User cancelled.");
 		}
 
 		void setProgress(float progress)
@@ -105,7 +105,7 @@ namespace Nebula
 		
 		bool hasError() const {
 			std::lock_guard<std::mutex> lock(mMutex);
-			return mErrorCode != ErrorCode::NoError;
+			return !mErrorMessage.empty();
 		}
 		
 		std::string errorMessage() const {
@@ -125,10 +125,10 @@ namespace Nebula
 			}
 		}
 		
-		typedef std::function<void (T&)> OnDoneCallback;
+		typedef std::function<void (const T&)> OnDoneCallback;
 		typedef std::function<void ()> OnCancelledCallback;
 		typedef std::function<void (float)> OnProgressCallback;
-		typedef std::function<void (ErrorCode, const std::string&)> OnErrorCallback;
+		typedef std::function<void (const std::string&)> OnErrorCallback;
 		
 		void registerOnDoneCallback(OnDoneCallback callback)
 		{
@@ -142,7 +142,7 @@ namespace Nebula
 		void registerOnCancelledCallback(OnCancelledCallback callback)
 		{
 			std::unique_lock<std::mutex> lock(mMutex);
-			if(mErrorCode == ErrorCode::UserCancelled) {
+			if(mCancelled) {
 				callback();
 			}
 			mOnCancelledCallback = callback;
@@ -158,8 +158,8 @@ namespace Nebula
 		void registerOnErrorCallback(OnErrorCallback callback)
 		{
 			std::unique_lock<std::mutex> lock(mMutex);
-			if(mErrorCode != ErrorCode::NoError) {
-				callback(mErrorCode, mErrorMessage);
+			if(!mErrorMessage.empty()) {
+				callback(mErrorMessage);
 			}
 			mOnErrorCallback = callback;
 		}
@@ -168,9 +168,9 @@ namespace Nebula
 		bool mIsDone;
 		bool mIsReady;
 		bool mCancelRequested;
+		bool mCancelled;
 		T mResult;
 		float mProgress;
-		ErrorCode mErrorCode;
 		std::string mErrorMessage;
 		
 		OnDoneCallback mOnDoneCallback;
@@ -186,8 +186,7 @@ namespace Nebula
 	class AsyncProgress
 	{
 	public:
-		AsyncProgress(const AsyncProgressData<T>& data) : mData(data) { }
-		AsyncProgress(AsyncProgressData<T>&& data) : mData(std::move(data)) { }
+		AsyncProgress(std::shared_ptr<AsyncProgressData<T>> data) : mData(data) { }
 		
 		bool isDone() const { return mData->isDone(); }
 		bool isReady() const { return mData->isReady(); }
@@ -197,7 +196,7 @@ namespace Nebula
 		
 		void cancel() { mData->requestCancel(); }
 		void wait() const { mData->wait(); }
-		
+
 		template<typename U>
 		AsyncProgress onDone(U func) {
 			mData->registerOnDoneCallback(func);
