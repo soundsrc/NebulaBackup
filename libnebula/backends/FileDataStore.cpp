@@ -17,10 +17,8 @@
 #include <memory>
 #include <future>
 #include <stdio.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <dirent.h>
 #include <errno.h>
+#include <boost/filesystem.hpp>
 #include "OutputStream.h"
 #include "InputStream.h"
 #include "DataStore.h"
@@ -37,27 +35,29 @@ namespace Nebula
 	
 	AsyncProgress<bool> FileDataStore::get(const char *path, OutputStream& stream)
 	{
+		using namespace boost;
+		
 		std::shared_ptr<AsyncProgressData<bool>> progress = std::make_shared<AsyncProgressData<bool>>();
 		
-		std::string fullPath = mStoreDirectory + "/" + path;
+		filesystem::path fullPath = filesystem::path(mStoreDirectory) / path;
 		std::async([this, fullPath, &stream, &progress]() -> void {
 			try {
 				
-				int fd = ::open(fullPath.c_str(), O_RDONLY);
-				if(fd < 0) {
+				FILE *fp = fopen(fullPath.c_str(), "rb");
+				if(!fp) {
 					switch(errno) {
 						case ENOENT:
 							progress->setReady(false);
 							return;
-						default: throw FileIOException(fullPath + ": " + strerror(errno)); break;
+						default: throw FileIOException(fullPath.string() + ": " + strerror(errno)); break;
 					}
 				}
 				
-				ScopedExit onExit([fd] { close(fd); });
+				ScopedExit onExit([fp] { fclose(fp); });
 
 				char buffer[4096];
 				ssize_t n;
-				while((n = ::read(fd, buffer, sizeof(buffer))) > 0) {
+				while((n = fread(buffer, 1, sizeof(buffer), fp)) > 0) {
 					if(progress->cancelRequested()) {
 						progress->setCancelled();
 						return;
@@ -67,8 +67,8 @@ namespace Nebula
 					}
 				}
 
-				if(n < 0) {
-					throw FileIOException(fullPath + ": " + strerror(errno));
+				if(n == 0 && ferror(fp)) {
+					throw FileIOException(fullPath.string() + ": Read error.");
 				}
 
 				progress->setReady(true);
@@ -82,25 +82,31 @@ namespace Nebula
 	
 	AsyncProgress<bool> FileDataStore::put(const char *path, InputStream& stream)
 	{
+		using namespace boost;
+		
 		std::shared_ptr<AsyncProgressData<bool>> progress = std::make_shared<AsyncProgressData<bool>>();
 		
-		std::string fullPath = mStoreDirectory + "/" + path;
+		filesystem::path fullPath = filesystem::path(mStoreDirectory) / path;
 		std::async([this, fullPath, &stream, &progress]() -> void {
 			try {
-				int fd = open(fullPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
-				if(fd < 0) {
-					throw FileIOException(fullPath + ": " + strerror(errno));
+				if(!filesystem::exists(fullPath.parent_path()))
+				{
+					filesystem::create_directories(fullPath.parent_path());
+				}
+				
+				FILE *fp = fopen(fullPath.c_str(), "wb");
+				if(!fp) {
+					throw FileIOException(fullPath.string() + ": " + strerror(errno));
 				}
 
-				ScopedExit onExit([fd] { close(fd); });
+				ScopedExit onExit([fp] { fclose(fp); });
 
 				int n;
 				char buffer[4096];
 				while((n = stream.read(buffer, sizeof(buffer))) >= 0) {
-					if(::write(fd, buffer, n) < 0) {
-						switch(errno) {
-							case EDQUOT: throw DiskQuotaExceededException(fullPath + ": " + strerror(errno)); break;
-							default: throw FileIOException(fullPath + ": " + strerror(errno)); break;
+					if(fwrite(buffer, 1, n, fp) < n) {
+						if(ferror(fp)) {
+							throw FileIOException(fullPath.string() + ": Write error.");
 						}
 					}
 				}
@@ -118,15 +124,17 @@ namespace Nebula
 	{
 		std::shared_ptr<AsyncProgressData<bool>> progress = std::make_shared<AsyncProgressData<bool>>();
 
-		DIR *dirp;
-		struct dirent *dp;
-		dirp = opendir(mStoreDirectory.c_str());
-		while((dp = readdir(dirp)) != NULL) {
-			if(strcmp(dp->d_name,".") && strcmp(dp->d_name,"..")) {
-				listCallback(dp->d_name, userData);
+		using namespace boost;
+
+		filesystem::recursive_directory_iterator dirIterator(path);
+		
+		for(auto& file : dirIterator)
+		{
+			if(!filesystem::is_directory(file))
+			{
+				listCallback(file.path().c_str(), userData);
 			}
 		}
-		closedir(dirp);
 		
 		listCallback(nullptr, userData);
 		
@@ -136,17 +144,13 @@ namespace Nebula
 	
 	AsyncProgress<bool> FileDataStore::unlink(const char *path)
 	{
+		using namespace boost;
+
 		std::shared_ptr<AsyncProgressData<bool>> progress = std::make_shared<AsyncProgressData<bool>>();
 		
-		std::string fullPath = mStoreDirectory + "/" + path;
-		if(::unlink(fullPath.c_str()) != 0) {
-			switch(errno) {
-				case ENOENT: {
-					progress->setReady(false);
-					return AsyncProgress<bool>(progress);
-				}
-				default: throw FileIOException(fullPath + ": " + strerror(errno));
-			}
+		filesystem::path fullPath = filesystem::path(mStoreDirectory) / path;
+		if(!filesystem::remove(fullPath)) {
+			throw FileIOException(fullPath.string() + ": Failed to remove.");
 		}
 		
 		progress->setReady(true);
