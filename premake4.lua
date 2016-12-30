@@ -14,24 +14,30 @@ solution "NebulaBackup"
 		kind "SharedLib"
 		buildoptions { "-std=c++11", "-stdlib=libc++" }
 		includedirs {
-			"."
+			".",
+			"thirdparty/libressl/include"
 		}
 		files { 
 			"libnebula/**.h",
 			"libnebula/**.cpp" 
 		}
 
+		links { "ssl", "crypto" }
+
 	project "NebulaBackup-cli"
 		kind "ConsoleApp"
 		language "C++"
 		buildoptions { "-std=c++11", "-stdlib=libc++" }
 		includedirs {
-			"."
+			".",
+			"thirdparty/libressl/include"
 		}
 		files {
 			"cli/*.h",
 			"cli/*.cpp"
 		}
+
+		links "Nebula"
 
 	project "crypto"
 		language "C"
@@ -43,7 +49,7 @@ solution "NebulaBackup"
 			"thirdparty/libressl/crypto/evp",
 			"thirdparty/libressl/crypto/modes",
 			"thirdparty/libressl/include",
-			"thirdparty/libressl/include/compat",
+			"thirdparty/libressl/include/compat"
 		}
 
 		if os.is("macosx") then
