@@ -102,6 +102,8 @@ namespace Nebula
 						}
 					}
 				}
+				
+				progress->setReady(true);
 			} catch(const std::exception& e) {
 				progress->setError(e.what());
 			}
