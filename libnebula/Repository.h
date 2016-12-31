@@ -68,16 +68,6 @@ namespace Nebula
 		 * @param oldPassword
 		 */
 		AsyncProgress<bool> changePassword(const char *oldPassword, const char *newPassword);
-		
-		/**
-		 * Creates a new snapshot and uploads the files in the filelist.
-		 */
-		Snapshot createSnapshot(const char *snapshotName);
-		
-		/**
-		 * Obtains a list of files in a snapshot
-		 */
-		void listFilesInSnapshot(const char *snapshotName, void (*fileListReceiver)(const char *));
 
 	private:
 		DataStore *mDataStore;

@@ -39,8 +39,9 @@ namespace Nebula
 		~Snapshot();
 		
 		/**
-		 * Uploads a file to the backup. The upload algorithm may optimize
-		 * bandwidth here, by not retransferring existing data.
+		 * Uploads a file to the backup.
+		 * The upload algorithm may optionally split the file into multiple
+		 * blocks and upload each individually, and may choose to 
 		 * A file maybe uploaded to the backup, however, it won't have an
 		 * reference until commit() is called.
 		 */
