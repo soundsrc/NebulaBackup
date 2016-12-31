@@ -62,9 +62,7 @@ namespace Nebula
 						progress->setCancelled();
 						return;
 					}
-					if(stream.write(buffer, (int)n) < n) {
-						throw DiskQuotaExceededException("Output stream does not have enough space.");
-					}
+					stream.write(buffer, (size_t)n);
 				}
 
 				if(n == 0 && ferror(fp)) {
@@ -107,9 +105,9 @@ namespace Nebula
 
 				ScopedExit onExit([fp] { if(fp) fclose(fp); });
 
-				int n;
+				size_t n;
 				char buffer[4096];
-				while((n = stream.read(buffer, sizeof(buffer))) >= 0) {
+				while((n = stream.read(buffer, sizeof(buffer))) > 0) {
 					if(fwrite(buffer, 1, n, fp) < n) {
 						if(ferror(fp)) {
 							throw FileIOException(fullPath.string() + ": Write error.");

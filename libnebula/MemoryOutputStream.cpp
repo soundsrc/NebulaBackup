@@ -26,19 +26,13 @@ namespace Nebula
 	{
 	}
 	
-	int MemoryOutputStream::write(const void *data, int size)
+	void MemoryOutputStream::write(const void *data, size_t size)
 	{
-		if(mNext >= mEnd) {
-			return -1;
-		}
-		
 		if(size > mEnd - mNext) {
 			throw InsufficientBufferSizeException("Buffer does not have enough space to write data.");
 		}
 		
 		memcpy(mNext, data, size);
-		mNext += size;
-		
-		return size;
+		mNext += size;;
 	}
 }

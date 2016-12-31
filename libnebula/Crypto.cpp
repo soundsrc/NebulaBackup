@@ -41,25 +41,21 @@ namespace Nebula
 			
 			ZeroedArray<uint8_t, 4096> buffer;
 			ZeroedArray<uint8_t, 4096 + 32> outputBuffer;
-			int n;
+			size_t n;
 			int encryptedLen;
-			while((n = inputStream.read(buffer.data(), buffer.size())) >= 0) {
+			while((n = inputStream.read(buffer.data(), buffer.size())) > 0) {
 				if(!EVP_EncryptUpdate(ctx, outputBuffer.data(), &encryptedLen, buffer.data(), n)) {
 					throw EncryptionFailedException("Failed to encrypt key.");
 				}
 				
-				if(outputStream.write(outputBuffer.data(), encryptedLen) < 0) {
-					throw FileIOException("Output buffer does not have enough space for encrypted ouyput.");
-				}
+				outputStream.write(outputBuffer.data(), encryptedLen);
 			}
 			
 			if(!EVP_EncryptFinal_ex(ctx, outputBuffer.data(), &encryptedLen)) {
 				throw EncryptionFailedException("Failed to encrypt key.");
 			}
 
-			if(outputStream.write(outputBuffer.data(), encryptedLen) < 0) {
-				throw FileIOException("Output buffer does not have enough space for encrypted ouyput.");
-			}
+			outputStream.write(outputBuffer.data(), encryptedLen);
 		}
 		
 		void decrypt(const uint8_t *key, const uint8_t *iv, InputStream& inputStream, OutputStream& outputStream)
@@ -77,25 +73,20 @@ namespace Nebula
 			
 			ZeroedArray<uint8_t, 4096> buffer;
 			ZeroedArray<uint8_t, 4096 + 32> outputBuffer;
-			int n;
+			size_t n;
 			int encryptedLen;
-			while((n = inputStream.read(buffer.data(), buffer.size())) >= 0) {
+			while((n = inputStream.read(buffer.data(), buffer.size())) > 0) {
 				if(!EVP_DecryptUpdate(ctx, outputBuffer.data(), &encryptedLen, buffer.data(), n)) {
 					throw EncryptionFailedException("Failed to encrypt key.");
 				}
 				
-				if(outputStream.write(outputBuffer.data(), encryptedLen) < 0) {
-					throw FileIOException("Output buffer does not have enough space for encrypted ouyput.");
-				}
-			}
+				outputStream.write(outputBuffer.data(), encryptedLen);			}
 			
 			if(!EVP_DecryptFinal_ex(ctx, outputBuffer.data(), &encryptedLen)) {
 				throw EncryptionFailedException("Failed to encrypt key.");
 			}
 			
-			if(outputStream.write(outputBuffer.data(), encryptedLen) < 0) {
-				throw FileIOException("Output buffer does not have enough space for encrypted ouyput.");
-			}
+			outputStream.write(outputBuffer.data(), encryptedLen);
 		}
 		
 		void hmac(const uint8_t *key, InputStream& inputStream, uint8_t *signature)
@@ -108,9 +99,9 @@ namespace Nebula
 				throw EncryptionFailedException("HMAC_Init_ex failed.");
 			}
 			
-			int n;
+			size_t n;
 			ZeroedArray<uint8_t, 4096> buffer;
-			while((n = inputStream.read(buffer.data(), buffer.size())) >= 0)
+			while((n = inputStream.read(buffer.data(), buffer.size())) > 0)
 			{
 				if(!HMAC_Update(&ctx, buffer.data(), n))
 				{

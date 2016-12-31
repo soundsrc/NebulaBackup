@@ -13,31 +13,21 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-#include <string.h>
-#include "MemoryInputStream.h"
+
+#include "OutputStream.h"
 
 namespace Nebula
 {
-	MemoryInputStream::MemoryInputStream(const uint8_t *buffer, size_t size)
-	: mStart(buffer)
-	, mNext(buffer)
-	, mEnd(buffer + size)
+	OutputStream::~OutputStream()
+	{
+		close();
+	}
+	
+	void OutputStream::flush()
 	{
 	}
 	
-	size_t MemoryInputStream::read(void *data, size_t size)
+	void OutputStream::close()
 	{
-		if(mNext >= mEnd) {
-			return 0;
-		}
-
-		if(size > mEnd - mNext) {
-			size = mEnd - mNext;
-		}
-		
-		memcpy(data, mNext, size);
-		mNext += size;
-
-		return size;
 	}
 }

@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <stddef.h>
+
 namespace Nebula
 {
 	/**
@@ -24,22 +26,27 @@ namespace Nebula
 	class OutputStream
 	{
 	public:
-		~OutputStream() { close(); }
+		OutputStream() = default;
+		~OutputStream();
 
 		/**
-		 * Writes to data the output stream.
-		 * Returns number of bytes actually written, or -1 on error.
+		 * Writes @a size bytes to the output stream.
+		 * If not all bytes could be written an exception is thrown.
 		 */
-		virtual int write(const void *data, int size) = 0;
+		virtual void write(const void *data, size_t size) = 0;
 		
 		/**
 		 * Flushes unwritten bytes to the output stream
 		 */
-		virtual void flush() { }
+		virtual void flush();
 		
 		/**
-		 * Closes the output stream. Output cannot be written to after close()
+		 * Closes the output stream.
+		 * Manually calling close() is generally not required, but in certain
+		 * cases like encryption and hashing, close() will finalize the stream
+		 * for immediate processing.
+		 * Output cannot be written to after close().
 		 */
-		virtual void close() { }
+		virtual void close();
 	};
 }

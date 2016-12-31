@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <stddef.h>
+
 namespace Nebula
 {
 	/**
@@ -24,12 +26,21 @@ namespace Nebula
 	class InputStream
 	{
 	public:
+		InputStream() = default;
+		~InputStream();
+
 		/**
-		 * Reads data from the input stream.
-		 * Return -1 on EOF or number of bytes read.
+		 * Reads @a size bytes from the input stream.
+		 * The method will wait for all bytes to be available before returning
+		 * and returning short amount of bytes once EOF has been reached.
+		 * Returns the number of bytes read or 0 on EOF.
 		 */
-		virtual int read(void *data, int size) = 0;
-		
-		virtual void close() { }
+		virtual size_t read(void *data, size_t size) = 0;
+
+		/**
+		 * Closes the input stream.
+		 * Calling close() manually is generally not required.
+		 */
+		virtual void close();
 	};
 }

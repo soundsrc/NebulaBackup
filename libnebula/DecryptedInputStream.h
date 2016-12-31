@@ -29,7 +29,7 @@ namespace Nebula
 		DecryptedInputStream(InputStream& stream, const EVP_CIPHER *cipher, const uint8_t *key, const uint8_t *iv);
 		~DecryptedInputStream();
 		
-		virtual int read(void *data, int size) override;
+		virtual size_t read(void *data, size_t size) override;
 	private:
 		enum { PaddingExtra = 128 };
 		InputStream& mStream;

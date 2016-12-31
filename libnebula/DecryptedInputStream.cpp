@@ -39,12 +39,12 @@ namespace Nebula
 		EVP_CIPHER_CTX_free(mCtx);
 	}
 	
-	int DecryptedInputStream::read(void *data, int size)
+	size_t DecryptedInputStream::read(void *data, size_t size)
 	{
 		uint8_t buffer[4096 + PaddingExtra];
-		int n;
+		size_t n;
 		uint8_t *p = (uint8_t *)data;
-		int bytesRead = 0;
+		size_t bytesRead = 0;
 
 		while(size > mBytesInBuffer) {
 			if(mBytesInBuffer > 0) {
@@ -57,7 +57,7 @@ namespace Nebula
 
 			mBufferPtr = mBuffer.data();
 			n = mStream.read(buffer, 4096);
-			if(n < 0) {
+			if(!n) {
 				if(!mDone) {
 					if(!EVP_DecryptFinal_ex(mCtx, mBuffer.data(), &mBytesInBuffer)) {
 						throw EncryptionFailedException("EVP_DecryptFinal_ex: Decryption error.");
@@ -68,7 +68,7 @@ namespace Nebula
 
 				if(bytesRead > 0) return bytesRead;
 
-				return -1;
+				return 0;
 			}
 
 			if(!EVP_DecryptUpdate(mCtx, mBuffer.data(), &mBytesInBuffer, buffer, n)) {

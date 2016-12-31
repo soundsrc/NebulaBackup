@@ -33,7 +33,7 @@ namespace Nebula
 		const uint8_t *data() const { return mStart; }
 		size_t size() const { return mNext - mStart; }
 
-		virtual int read(void *data, int size) override;
+		virtual size_t read(void *data, size_t size) override;
 	private:
 		const uint8_t *mStart;
 		const uint8_t *mNext;

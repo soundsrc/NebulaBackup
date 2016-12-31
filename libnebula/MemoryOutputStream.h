@@ -35,7 +35,7 @@ namespace Nebula
 
 		void reset() { mNext = mStart; }
 
-		virtual int write(const void *data, int size) override;
+		virtual void write(const void *data, size_t size) override;
 	private:
 		uint8_t *mStart;
 		uint8_t *mNext;

@@ -40,7 +40,7 @@ namespace Nebula
 		EVP_CIPHER_CTX_free(mCtx);
 	}
 	
-	int EncryptedOutputStream::write(const void *data, int size)
+	void EncryptedOutputStream::write(const void *data, size_t size)
 	{
 		ZeroedArray<uint8_t, 4096> buffer;
 		uint8_t encBuffer[4096 + PaddingExtra];
@@ -59,13 +59,9 @@ namespace Nebula
 				throw EncryptionFailedException("Failed to encrypt data.");
 			}
 			
-			int n = mStream.write(encBuffer, outLen);
-			if(n >= 0) {
-				bytesWritten += n;
-			}
+			mStream.write(encBuffer, outLen);
+			bytesWritten += outLen;
 		}
-		
-		return bytesWritten;
 	}
 	
 	void EncryptedOutputStream::flush()
