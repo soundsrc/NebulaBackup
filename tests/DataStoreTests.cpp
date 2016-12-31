@@ -234,7 +234,6 @@ TEST(DataStoreTests, List) {
 		
 		ds.list("/", [&pathSet](const char *path, void*) {
 			if(path) {
-				printf("%s\n", path);
 				auto it = pathSet.find(path);
 				EXPECT_NE(it, pathSet.end());
 				if(it != pathSet.end()) {
