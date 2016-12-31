@@ -14,6 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 #include <string.h>
+#include "Exception.h"
 #include "MemoryOutputStream.h"
 
 namespace Nebula
@@ -32,7 +33,7 @@ namespace Nebula
 		}
 		
 		if(size > mEnd - mNext) {
-			size = mEnd - mNext;
+			throw InsufficientBufferSizeException("Buffer does not have enough space to write data.");
 		}
 		
 		memcpy(mNext, data, size);

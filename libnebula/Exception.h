@@ -35,6 +35,7 @@ public: \
 	DEFINE_EXCEPTION(InvalidRepositoryException);
 	DEFINE_EXCEPTION(InvalidDataException);
 	DEFINE_EXCEPTION(EncryptionFailedException);
+	DEFINE_EXCEPTION(InsufficientBufferSizeException);
 	
 #undef DEFINE_EXCEPTION
 
