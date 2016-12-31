@@ -16,30 +16,25 @@
 
 #pragma once
 
+#include <stdint.h>
+#include <openssl/evp.h>
+#include "OutputStream.h"
+
 namespace Nebula
 {
-	/**
-	 * Output stream interface
-	 */
-	class OutputStream
+	class EncryptedOutputStream : public OutputStream
 	{
 	public:
-		~OutputStream() { close(); }
+		EncryptedOutputStream(OutputStream& stream, const EVP_CIPHER *cipher, const uint8_t *key, const uint8_t *iv);
+		~EncryptedOutputStream();
 
-		/**
-		 * Writes to data the output stream.
-		 * Returns number of bytes actually written, or -1 on error.
-		 */
-		virtual int write(const void *data, int size) = 0;
-		
-		/**
-		 * Flushes unwritten bytes to the output stream
-		 */
-		virtual void flush() { }
-		
-		/**
-		 * Closes the output stream. Output cannot be written to after close()
-		 */
-		virtual void close() { }
+		virtual int write(const void *data, int size) override;
+		virtual void flush() override;
+		virtual void close() override;
+	private:
+		enum { PaddingExtra = 128 };
+
+		OutputStream& mStream;
+		EVP_CIPHER_CTX *mCtx;
 	};
 }

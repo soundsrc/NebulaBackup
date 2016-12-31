@@ -16,30 +16,27 @@
 
 #pragma once
 
+#include <stdint.h>
+#include <openssl/evp.h>
+#include "InputStream.h"
+#include "ZeroedArray.h"
+
 namespace Nebula
 {
-	/**
-	 * Output stream interface
-	 */
-	class OutputStream
+	class DecryptedInputStream : public InputStream
 	{
 	public:
-		~OutputStream() { close(); }
-
-		/**
-		 * Writes to data the output stream.
-		 * Returns number of bytes actually written, or -1 on error.
-		 */
-		virtual int write(const void *data, int size) = 0;
+		DecryptedInputStream(InputStream& stream, const EVP_CIPHER *cipher, const uint8_t *key, const uint8_t *iv);
+		~DecryptedInputStream();
 		
-		/**
-		 * Flushes unwritten bytes to the output stream
-		 */
-		virtual void flush() { }
-		
-		/**
-		 * Closes the output stream. Output cannot be written to after close()
-		 */
-		virtual void close() { }
+		virtual int read(void *data, int size) override;
+	private:
+		enum { PaddingExtra = 128 };
+		InputStream& mStream;
+		EVP_CIPHER_CTX *mCtx;
+		ZeroedArray<uint8_t, 4096 + PaddingExtra> mBuffer;
+		const uint8_t *mBufferPtr;
+		int mBytesInBuffer;
+		bool mDone;
 	};
 }

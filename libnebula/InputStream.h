@@ -29,5 +29,7 @@ namespace Nebula
 		 * Return -1 on EOF or number of bytes read.
 		 */
 		virtual int read(void *data, int size) = 0;
+		
+		virtual void close() { }
 	};
 }
