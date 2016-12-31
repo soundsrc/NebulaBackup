@@ -64,7 +64,7 @@ solution "NebulaBackup"
 			"tests/*.cpp"
 		}
 
-		links { "Nebula", "googletest", "boostfilesystem" }
+		links { "Nebula", "ssl", "crypto", "googletest", "boostfilesystem" }
 
 	project "googletest"
 		kind "StaticLib"
