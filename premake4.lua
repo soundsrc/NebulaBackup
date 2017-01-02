@@ -2,7 +2,8 @@
 function nebula_common_includes()
 	includedirs {
 		"thirdparty/libressl/include",
-		"thirdparty/boost"
+		"thirdparty/boost",
+		"thirdparty/lzma/C"
 	}
 end
 
@@ -718,3 +719,15 @@ solution "NebulaBackup"
 
 		}
 		links { "crypto" }
+
+
+	project "lzma"
+		language "C"
+		kind "StaticLib"
+		includedirs {
+			"thirdparty/lzma/C"
+		}
+		files {
+			"thirdparty/lzma/C/*.c",
+			"thirdparty/lzma/C/*.h"
+		}
