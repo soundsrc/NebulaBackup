@@ -731,3 +731,11 @@ solution "NebulaBackup"
 			"thirdparty/lzma/C/*.c",
 			"thirdparty/lzma/C/*.h"
 		}
+		-- single thread for now
+		defines { "_7ZIP_ST=1" }
+		excludes {
+			"thirdparty/lzma/C/MtCoder.c",
+			"thirdparty/lzma/C/LzFindMt.c",
+			"thirdparty/lzma/C/Threads.c",
+		}
+
