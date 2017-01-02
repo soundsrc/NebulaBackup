@@ -32,7 +32,7 @@ solution "NebulaBackup"
 			"libnebula/**.cpp" 
 		}
 
-		links { "ssl", "crypto", "boostfilesystem" }
+		links { "ssl", "crypto", "boostfilesystem", "lzma" }
 
 	project "NebulaBackup-cli"
 		kind "ConsoleApp"
