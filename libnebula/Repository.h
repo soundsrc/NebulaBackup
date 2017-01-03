@@ -45,7 +45,7 @@ namespace Nebula
 		 * The files and data structures will be setup using
 		 * the supplied password.
 		 */
-		AsyncProgress<bool> initializeRepository(const char *password);
+		AsyncProgress<bool> initializeRepository(const char *password, int rounds = 4096);
 		
 		/**
 		 * Unlocks an existing repository. This should be called before

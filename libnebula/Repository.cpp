@@ -45,7 +45,7 @@ namespace Nebula
 		free(mEncKey);
 	}
 	
-	AsyncProgress<bool> Repository::initializeRepository(const char *password)
+	AsyncProgress<bool> Repository::initializeRepository(const char *password, int rounds)
 	{
 		std::shared_ptr<AsyncProgressData<bool>> asyncProgress = std::make_shared<AsyncProgressData<bool>>();
 
@@ -54,7 +54,7 @@ namespace Nebula
 		
 		uint8_t salt[32];
 		arc4random_buf(salt, sizeof(32));
-		if(!PKCS5_PBKDF2_HMAC(password, strlen(password), salt, sizeof(salt), 1024, EVP_sha256(), derivedKey.size(), derivedKey.data())) {
+		if(!PKCS5_PBKDF2_HMAC(password, strlen(password), salt, sizeof(salt), rounds, EVP_sha256(), derivedKey.size(), derivedKey.data())) {
 			throw EncryptionFailedException("Failed to set password.");
 		}
 		
@@ -74,7 +74,7 @@ namespace Nebula
 		encStream.write(&v, sizeof(v));
 		v = 0;
 		encStream.write(&v, sizeof(v));
-		v = 1024;
+		v = rounds;
 		encStream.write(&v, sizeof(v));
 
 		encStream.write(salt, 32);
