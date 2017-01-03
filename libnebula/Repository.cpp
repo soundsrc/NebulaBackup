@@ -20,7 +20,7 @@ extern "C" {
 #include "compat/stdlib.h"
 #include "compat/string.h"
 }
-#include "Crypto.h"
+#include "EncryptedOutputStream.h"
 #include "ZeroedArray.h"
 #include "Exception.h"
 #include "DataStore.h"
@@ -59,37 +59,33 @@ namespace Nebula
 		}
 		
 		// random generate the encryption key
-		uint8_t iv[32];
 		arc4random_buf(mEncKey, 32);
 		arc4random_buf(mMacKey, 32);
-		arc4random_buf(iv, 32);
 		
 		// encrypt the encryption key with the derived key
-		uint8_t encryptedData[1024];
-		MemoryOutputStream encStream(encryptedData, sizeof(encryptedData));
+		uint8_t keyData[1024];
+		MemoryOutputStream keyStream(keyData, sizeof(keyData));
 
-		encStream.write("NEBULABACKUP", 12);
+		keyStream.write("NEBULABACKUP", 12);
 		uint32_t v;
 		v = 0x00010000;
-		encStream.write(&v, sizeof(v));
+		keyStream.write(&v, sizeof(v));
 		v = 0;
-		encStream.write(&v, sizeof(v));
+		keyStream.write(&v, sizeof(v));
 		v = rounds;
-		encStream.write(&v, sizeof(v));
+		keyStream.write(&v, sizeof(v));
 
-		encStream.write(salt, 32);
-		encStream.write(iv, 32);
-
-		ZeroedArray<uint8_t, 32> encBlock;
-		memcpy(encBlock.data(), mEncKey, 32);
-		memcpy(encBlock.data() + 32, mMacKey, 32);
+		keyStream.write(salt, 32);
 
 		// encrypt key with the derived key
-		MemoryInputStream keyStream(encBlock.data(), 64);
-		Crypto::encrypt(derivedKey.data(), iv, keyStream, encStream);
-		
-		MemoryInputStream encKey(encStream.data(), encStream.size());
-		AsyncProgress<bool> putProgress = mDataStore->put("/key", encKey)
+		EncryptedOutputStream encStream(keyStream, EVP_aes_256_cbc(), derivedKey.data());
+		encStream.write(mEncKey, 32);
+		encStream.write(mMacKey, 32);
+		encStream.close();
+		keyStream.close();
+
+		MemoryInputStream keyStreamResult(keyStream.data(), keyStream.size());
+		AsyncProgress<bool> putProgress = mDataStore->put("/key", keyStreamResult)
 			.onDone([&asyncProgress](bool ready) {
 				asyncProgress->setReady(ready);
 			})
