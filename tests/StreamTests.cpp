@@ -23,6 +23,8 @@ extern "C" {
 #include "compat/string.h"
 }
 #include "libnebula/Exception.h"
+#include "libnebula/LZMAUtils.h"
+#include "libnebula/LZMAInputStream.h"
 #include "libnebula/MemoryInputStream.h"
 #include "libnebula/MemoryOutputStream.h"
 #include "libnebula/EncryptedOutputStream.h"
@@ -124,5 +126,34 @@ TEST(StreamTests, EncryptionStreamReadWrite)
 								inStream = std::move(memStream);
 								return new DecryptedInputStream(*inStream, EVP_aes_256_cbc(), key, iv);
 							}, bufferSize);
+	}
+}
+
+TEST(StreamTests, LZMAStreamReadWrite)
+{
+	using namespace Nebula;
+
+	std::vector<uint8_t> inData, compressedData, outData;
+	srand(time(nullptr));
+	
+	for(int i = 0; i < 16; ++i) {
+		size_t size = 1 + (rand() % 100000);
+		inData.resize(size);
+		compressedData.resize(size + 1000);
+		outData.resize(size);
+		
+		arc4random_buf(&inData[0], inData.size());
+		MemoryInputStream inStream(&inData[0], inData.size());
+		MemoryOutputStream outStream(&compressedData[0], compressedData.size());
+		
+		LZMAUtils::compress(inStream, outStream, nullptr);
+		
+		MemoryInputStream inStream2(outStream.data(), outStream.size());
+		LZMAInputStream lzStream(inStream2);
+		MemoryOutputStream outStream2(&outData[0], outData.size());
+		
+		copyStream(lzStream, outStream2, 1 + (rand() % 4096));
+		
+		EXPECT_TRUE(memcmp(&inData[0], &outData[0], size) == 0);
 	}
 }
