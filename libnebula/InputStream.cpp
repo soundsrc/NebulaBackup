@@ -13,7 +13,8 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-
+#include <stdint.h>
+#include "OutputStream.h"
 #include "InputStream.h"
 
 namespace Nebula
@@ -25,5 +26,15 @@ namespace Nebula
 
 	void InputStream::close()
 	{
+	}
+	
+	void InputStream::copyTo(OutputStream& outStream)
+	{
+		uint8_t buffer[16384];
+		size_t n;
+		
+		while((n = this->read(buffer, sizeof(buffer))) > 0) {
+			outStream.write(buffer, n);
+		}
 	}
 }

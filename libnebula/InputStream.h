@@ -20,6 +20,8 @@
 
 namespace Nebula
 {
+	class OutputStream;
+
 	/**
 	 * Inteface for an input stream
 	 */
@@ -42,5 +44,10 @@ namespace Nebula
 		 * Calling close() manually is generally not required.
 		 */
 		virtual void close();
+		
+		/**
+		 * Copies the content of the input stream to the output stream
+		 */
+		void copyTo(OutputStream& outStream);
 	};
 }
