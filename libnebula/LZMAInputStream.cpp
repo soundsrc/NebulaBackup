@@ -35,6 +35,8 @@ namespace Nebula
 		if(Lzma2Dec_Allocate(&mDec, prop, &mAlloc) != SZ_OK) {
 			throw LZMAException("Failed to allocate prop for LZMA decoding.");
 		}
+		
+		Lzma2Dec_Init(&mDec);
 	}
 	
 	LZMAInputStream::~LZMAInputStream()
@@ -49,6 +51,12 @@ namespace Nebula
 		
 		while(bytesDecoded < size)
 		{
+			if(mBytesInBuffer == 0) {
+				mBufferPtr = &mInputBuffer[0];
+				mBytesInBuffer = mStream.read(mBufferPtr, mInputBuffer.size());
+				if(!mBytesInBuffer) return bytesDecoded;
+			}
+
 			size_t inSize = mBytesInBuffer;
 			size_t outSize = size - bytesDecoded;
 			ELzmaStatus status;
@@ -65,12 +73,6 @@ namespace Nebula
 			switch (status) {
 				default: break;
 				case LZMA_STATUS_NEEDS_MORE_INPUT:
-					if(mBytesInBuffer > 0) {
-						memmove(&mInputBuffer, mBufferPtr, mBytesInBuffer);
-					}
-					mBufferPtr = &mInputBuffer[0];
-					mBytesInBuffer += mStream.read(mBufferPtr + mBytesInBuffer, mInputBuffer.size() - mBytesInBuffer);
-					if(!mBytesInBuffer) return bytesDecoded;
 					break;
 				case LZMA_STATUS_FINISHED_WITH_MARK:
 				case LZMA_STATUS_MAYBE_FINISHED_WITHOUT_MARK:
