@@ -66,7 +66,9 @@ namespace Nebula
 	
 	SRes LZMAProgress::progress(UInt64 inSize, UInt64 outSize)
 	{
-		mProgress(inSize, outSize);
+		if(mProgress) {
+			mProgress(inSize, outSize);
+		}
 		return SZ_OK;
 	}
 	
@@ -77,10 +79,12 @@ namespace Nebula
 			LzmaAlloc alloc;
 			
 			CLzma2EncHandle enc = Lzma2Enc_Create(&alloc, &alloc);
-			ScopedExit onExit([&enc, &alloc] { Lzma2Enc_Destroy(enc); });
+			ScopedExit onExit([&enc] { Lzma2Enc_Destroy(enc); });
 			
 			CLzma2EncProps props;
 			Lzma2EncProps_Init(&props);
+			props.lzmaProps.writeEndMark = 1;
+			props.lzmaProps.level = 9;
 			
 			if(Lzma2Enc_SetProps(enc, &props) != SZ_OK) {
 				throw LZMAException("Failed to set ZLMA2 prop.");

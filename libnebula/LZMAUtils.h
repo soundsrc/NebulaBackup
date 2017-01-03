@@ -18,6 +18,7 @@
 
 #include <functional>
 #include <stdint.h>
+#include "7zTypes.h"
 
 namespace Nebula
 {
