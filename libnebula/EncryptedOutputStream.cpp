@@ -21,18 +21,24 @@
 
 namespace Nebula
 {
-	EncryptedOutputStream::EncryptedOutputStream(OutputStream& stream, const EVP_CIPHER *cipher, const uint8_t *key, const uint8_t *iv)
+	EncryptedOutputStream::EncryptedOutputStream(OutputStream& stream, const EVP_CIPHER *cipher, const uint8_t *key)
 	: mStream(stream)
 	{
 		mCtx = EVP_CIPHER_CTX_new();
 		if(!mCtx) {
 			throw EncryptionFailedException("Failed to create cipher.");
 		}
+		
+		uint8_t iv[32];
+		arc4random_buf(iv, sizeof(iv));
 
 		if(!EVP_EncryptInit_ex(mCtx, cipher, nullptr, key, iv)) {
 			EVP_CIPHER_CTX_free(mCtx);
 			throw EncryptionFailedException("Failed to initialize encryption.");
 		}
+		
+		// write the iv
+		stream.write(iv, sizeof(iv));
 	}
 	
 	EncryptedOutputStream::~EncryptedOutputStream()

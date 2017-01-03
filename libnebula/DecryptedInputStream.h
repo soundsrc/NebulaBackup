@@ -26,7 +26,7 @@ namespace Nebula
 	class DecryptedInputStream : public InputStream
 	{
 	public:
-		DecryptedInputStream(InputStream& stream, const EVP_CIPHER *cipher, const uint8_t *key, const uint8_t *iv);
+		DecryptedInputStream(InputStream& stream, const EVP_CIPHER *cipher, const uint8_t *key);
 		~DecryptedInputStream();
 		
 		virtual size_t read(void *data, size_t size) override;

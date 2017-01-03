@@ -101,30 +101,28 @@ TEST(StreamTests, EncryptionStreamReadWrite)
 	using namespace Nebula;
 
 	uint8_t key[32];
-	uint8_t iv[32];
 	
 	std::vector<uint8_t> buffer;
-	buffer.reserve(1000000 + 32);
+	buffer.reserve(1000000 + 64);
 	
 	srand(time(nullptr));
 	for(int i = 0; i < 16; ++i) {
 		size_t size = 1 + (rand() % 1000000);
 		size_t bufferSize = 1 + (rand() % 1024);
 		
-		buffer.resize(size + 32);
+		buffer.resize(size + 64);
 		
 		arc4random_buf(key, sizeof(key));
-		arc4random_buf(iv, sizeof(iv));
 		
-		MemoryOutputStream outStream(&buffer[0], size + 32);
-		EncryptedOutputStream encOutStream(outStream, EVP_aes_256_cbc(), key, iv);
+		MemoryOutputStream outStream(&buffer[0], buffer.size());
+		EncryptedOutputStream encOutStream(outStream, EVP_aes_256_cbc(), key);
 		std::unique_ptr<MemoryInputStream> inStream;
 
 		testReadWriteStream(encOutStream, size,
-							[&inStream, &outStream, &size, &key, &iv]() -> InputStream * {
+							[&inStream, &outStream, &size, &key]() -> InputStream * {
 								std::unique_ptr<MemoryInputStream> memStream( new MemoryInputStream (outStream.data(), outStream.size()) );
 								inStream = std::move(memStream);
-								return new DecryptedInputStream(*inStream, EVP_aes_256_cbc(), key, iv);
+								return new DecryptedInputStream(*inStream, EVP_aes_256_cbc(), key);
 							}, bufferSize);
 	}
 }

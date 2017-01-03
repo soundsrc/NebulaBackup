@@ -18,7 +18,7 @@
 
 namespace Nebula
 {
-	DecryptedInputStream::DecryptedInputStream(InputStream& stream, const EVP_CIPHER *cipher, const uint8_t *key, const uint8_t *iv)
+	DecryptedInputStream::DecryptedInputStream(InputStream& stream, const EVP_CIPHER *cipher, const uint8_t *key)
 	: mStream(stream)
 	, mBytesInBuffer(0)
 	, mDone(false)
@@ -26,6 +26,11 @@ namespace Nebula
 		mCtx = EVP_CIPHER_CTX_new();
 		if(!mCtx) {
 			throw EncryptionFailedException("Failed to create cipher.");
+		}
+		
+		uint8_t iv[32];
+		if(stream.read(iv, sizeof(iv)) != sizeof(iv)) {
+			throw EncryptionFailedException("Failed to read encryption iv.");
 		}
 		
 		if(!EVP_DecryptInit_ex(mCtx, cipher, nullptr, key, iv)) {

@@ -25,7 +25,7 @@ namespace Nebula
 	class EncryptedOutputStream : public OutputStream
 	{
 	public:
-		EncryptedOutputStream(OutputStream& stream, const EVP_CIPHER *cipher, const uint8_t *key, const uint8_t *iv);
+		EncryptedOutputStream(OutputStream& stream, const EVP_CIPHER *cipher, const uint8_t *key);
 		~EncryptedOutputStream();
 
 		virtual void write(const void *data, size_t size) override;
