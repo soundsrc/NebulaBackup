@@ -16,11 +16,13 @@
 #include <stdlib.h>
 #include <openssl/evp.h>
 #include <openssl/sha.h>
+#include <openssl/hmac.h>
 extern "C" {
 #include "compat/stdlib.h"
 #include "compat/string.h"
 }
 #include "EncryptedOutputStream.h"
+#include "DecryptedInputStream.h"
 #include "ZeroedArray.h"
 #include "Exception.h"
 #include "DataStore.h"
@@ -53,7 +55,7 @@ namespace Nebula
 		ZeroedArray<uint8_t, 32> derivedKey;
 		
 		uint8_t salt[32];
-		arc4random_buf(salt, sizeof(32));
+		arc4random_buf(salt, sizeof(salt));
 		if(!PKCS5_PBKDF2_HMAC(password, strlen(password), salt, sizeof(salt), rounds, EVP_sha256(), derivedKey.size(), derivedKey.data())) {
 			throw EncryptionFailedException("Failed to set password.");
 		}
@@ -78,10 +80,23 @@ namespace Nebula
 		keyStream.write(salt, 32);
 
 		// encrypt key with the derived key
-		EncryptedOutputStream encStream(keyStream, EVP_aes_256_cbc(), derivedKey.data());
+		uint8_t encBytes[128];
+		MemoryOutputStream outStream(encBytes, sizeof(encBytes));
+		EncryptedOutputStream encStream(outStream, EVP_aes_256_cbc(), derivedKey.data());
 		encStream.write(mEncKey, 32);
 		encStream.write(mMacKey, 32);
 		encStream.close();
+		outStream.close();
+		
+		keyStream.write(outStream.data(), outStream.size());
+
+		uint8_t hmac[32];
+		unsigned int hmacLen = sizeof(hmac);
+		if(!HMAC(EVP_sha256(), derivedKey.data(), derivedKey.size(),
+				 outStream.data(), outStream.size(), hmac, &hmacLen)) {
+			throw EncryptionFailedException("Failed to HMAC encrypted block.");
+		}
+		keyStream.write(hmac, sizeof(hmac));
 		keyStream.close();
 
 		MemoryInputStream keyStreamResult(keyStream.data(), keyStream.size());
@@ -99,6 +114,92 @@ namespace Nebula
 				asyncProgress->setCancelled();
 			});
 
+		return AsyncProgress<bool>(asyncProgress);
+	}
+	
+	AsyncProgress<bool> Repository::unlockRepository(const char *password)
+	{
+		std::shared_ptr<AsyncProgressData<bool>> asyncProgress = std::make_shared<AsyncProgressData<bool>>();
+
+		uint8_t keyData[1024];
+		MemoryOutputStream keyStream(keyData, sizeof(keyData));
+		
+		AsyncProgress<bool> getProgress = mDataStore->get("/key", keyStream)
+			.onDone([this, &asyncProgress, &keyStream, password](bool ready) {
+				if(ready) {
+					char magic[12];
+					MemoryInputStream stream(keyStream.data(), keyStream.size());
+					stream.read(magic, sizeof(magic));
+					if(strncmp(magic, "NEBULABACKUP", 12) != 0) {
+						asyncProgress->setError("Back up stream is invalid.");
+						return;
+					}
+					uint32_t version = 0;
+					stream.read(&version, sizeof(version));
+					if(version != 0x00010000) {
+						asyncProgress->setError("Invalid version number.");
+						return;
+					}
+					
+					uint32_t algorithm;
+					stream.read(&algorithm, sizeof(algorithm)); // algorithm
+					if(algorithm != 0) {
+						asyncProgress->setError("Invalid algorithm.");
+						return;
+					}
+					
+					uint32_t rounds;
+					stream.read(&rounds, sizeof(rounds));
+					if(rounds > 100000) {
+						asyncProgress->setError("Invalid numebr of rounds.");
+						return;
+					}
+					
+					uint8_t salt[32];
+					stream.read(salt, sizeof(salt));
+					ZeroedArray<uint8_t, 32> derivedKey;
+					if(!PKCS5_PBKDF2_HMAC(password, strlen(password), salt, sizeof(salt), rounds, EVP_sha256(), derivedKey.size(), derivedKey.data())) {
+						asyncProgress->setError("Failed to unlock using password.");
+						return;
+					}
+
+					uint8_t encKeyData[112];
+					uint8_t hmac1[32];
+					uint8_t hmac2[32];
+					stream.read(encKeyData, sizeof(encKeyData));
+					stream.read(hmac1, sizeof(hmac1));
+					unsigned int hmacKeyLen = sizeof(hmac2);
+					
+					if(!HMAC(EVP_sha256(), derivedKey.data(), derivedKey.size(), encKeyData, sizeof(encKeyData), hmac2, &hmacKeyLen)) {
+						asyncProgress->setError("Failed to unlock using password. HMAC failure.");
+						return;
+					}
+
+					// password failure
+					if(memcmp(hmac1, hmac2, sizeof(hmac1)) != 0) {
+						asyncProgress->setReady(false);
+						return;
+					}
+
+					MemoryInputStream encKeyStream(encKeyData, sizeof(encKeyData));
+
+					DecryptedInputStream decStream(encKeyStream, EVP_aes_256_cbc(), derivedKey.data());
+					decStream.read(mEncKey, 32);
+					decStream.read(mMacKey, 32);
+				}
+				asyncProgress->setReady(ready);
+			})
+			.onProgress([&asyncProgress](float progress) {
+				asyncProgress->setProgress(progress);
+			})
+			.onError([&asyncProgress](const std::string& errorMessage) {
+				asyncProgress->setError(errorMessage);
+			})
+			.onCancelled([&asyncProgress] {
+				asyncProgress->setCancelled();
+			});
+		getProgress.wait();
+		
 		return AsyncProgress<bool>(asyncProgress);
 	}
 }
