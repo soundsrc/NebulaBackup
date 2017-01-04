@@ -16,7 +16,9 @@
 
 #pragma once
 
+extern "C" {
 #include "compat/string.h"
+}
 
 namespace Nebula
 {

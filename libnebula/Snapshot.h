@@ -17,11 +17,12 @@
 #pragma once
 
 #include <string>
+#include <set>
 #include <vector>
 #include <stdint.h>
-#include "libnebula/AsyncProgress.h"
-#include "libnebula/ZeroedString.h"
-#include "libnebula/ZeroedAllocator.h"
+#include "AsyncProgress.h"
+#include "ZeroedString.h"
+#include "ZeroedAllocator.h"
 
 namespace Nebula
 {
@@ -64,11 +65,13 @@ namespace Nebula
 		 */
 		AsyncProgress<bool> commit(const char *name);
 	private:
+		Repository& mRepository;
 		std::string mName;
 		
 		enum class TypeFlag
 		{
 			NormalFile,
+			Directory,
 			SymLink,
 			CharacterSpecial,
 			BlockSpecial
@@ -82,17 +85,36 @@ namespace Nebula
 
 		struct FileInfo
 		{
-			ZeroedString path; // pathname to the file
-			ZeroedString uid; // unix user id
-			ZeroedString group; // unix group name
+			const char *path; // pathname to the file
+			const char *uid; // unix user id
+			const char *group; // unix group name
 			long size; // size of file in bytes
 			time_t mtime; // modify time
-			uint32_t type; // flags
+			uint8_t type; // flags
+			uint8_t blockSizeLog;
+			uint16_t numBlocks;
 			uint8_t sha256[32];
-			int blockSize; // >0 defines block-size
-			std::vector<BlockHash> blockList;
+			BlockHash *blockList;
 		};
 		
-		std::vector<FileInfo, ZeroedAllocator<FileInfo>> mFiles;
+		class StringComparer
+		{
+			bool operator ()(const char *a, const char *b) {
+				return strcmp(a, b) < 0;
+			}
+		};
+		
+		class FileInfoComparer
+		{
+			bool operator ()(const FileInfo& a, const FileInfo& b) {
+				return strcmp(a.path, b.path) < 0;
+			}
+		};
+
+		//
+		std::set<const char *, StringComparer> mStringTable;
+		std::vector<char, ZeroedAllocator<char>> mStringBuffer;
+		std::vector<BlockHash, ZeroedAllocator<BlockHash>> mBlockHashes;
+		std::set<FileInfo, FileInfoComparer, ZeroedAllocator<FileInfo>> mFiles;
 	};
 }
