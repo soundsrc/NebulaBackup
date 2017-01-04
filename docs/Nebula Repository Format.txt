@@ -1,0 +1,59 @@
+Nebula Repository Format
+========================
+
+/key:
+	magic      u8[12]    12-byte magic "NEBULABACKUP"
+	version    u32       0x00010000
+	algorithm  u32       0 - AES-256-CBC
+	rounds     u32       Number of PBKDF2 rounds
+	salt       u8[32]    Salt
+	keyBlock   u8[96]    AES256-CBC encrypted keys
+	{
+	   iv      u8[32]    IV
+	   { // encrypted
+	       encKey  u8[32]    Encryption key
+	       macKey  u8[32]    HMAC key
+	   }
+	}
+	hmac       u8[32]    HMAC(derviedKey, keyBlock)
+
+	Decrypting the key block is as follows:
+	  - K = PKCS5_PBKDF2_HMAC_SHA256(password, salt, rounds)
+	  - decryptedKeyBlock = AES256_CBC(K, iv, keyBlock)
+
+/snapshots/<snapshot-name>:
+	snapshots are compressed LZMA
+
+	uncompressedSize  u32     Uncompressed size
+	hmac              u8[32]  HMAC(macKey, LZMA(data))
+	data              u8[...] 
+	{
+		numFiles          u32   Number of files
+		stringTableSize   u32   Size of string table / 4
+		numBlockEntries   u32   Number of SHA256
+		stringTable       u8[stringTableSize * 4]
+		blockTable        ...[numBlockEntries]
+		{
+			size          u32       blockSize
+			sha256        u8[32]    HMAC(macKey, blockData)
+		}
+		fileInfoList      ...[numFiles]
+		{
+			path            u32      Pathname (index in the string table)
+			uid             u32      User ID (index in the string table)
+			gid             u32      Group ID (index in the string table)
+			type            u8       Type
+			blockSizeLog    u8       Block size in 2^i (2^blockSizeLog)
+			numBlocks       u16      Number of blocks in the file
+			size            u64      Size of the file
+			mtime           u64      Last modify time
+			sha256          u8[32]   SHA256 of file
+			blockTableIndex u32      Index to the sha table
+		}
+	}
+
+/data/<object>:
+	- The filename is HMAC(macKey, <object>)
+	hmac              u8[32]   HMAC(macKey, iv|data)
+	iv                u8[32]   IV for decryption
+	data              u8[...]  AES256-CBC encrypted LZMA of data
