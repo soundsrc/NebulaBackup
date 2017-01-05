@@ -35,16 +35,22 @@ namespace Nebula
 	Repository::Repository(DataStore *dataStore)
 	: mDataStore(dataStore)
 	{
-		mEncKey = (uint8_t *)malloc(32);
-		mMacKey = (uint8_t *)malloc(32);
+		mEncKey = (uint8_t *)malloc(EVP_MAX_KEY_LENGTH);
+		mMacKey = (uint8_t *)malloc(EVP_MAX_KEY_LENGTH);
+		mHashKey = (uint8_t *)malloc(EVP_MAX_KEY_LENGTH);
+		mRollKey = (uint8_t *)malloc(EVP_MAX_KEY_LENGTH);
 	}
 	
 	Repository::~Repository()
 	{
-		explicit_bzero(mEncKey, 32);
-		explicit_bzero(mMacKey, 32);
+		explicit_bzero(mEncKey, EVP_MAX_KEY_LENGTH);
+		explicit_bzero(mMacKey, EVP_MAX_KEY_LENGTH);
+		explicit_bzero(mHashKey, EVP_MAX_KEY_LENGTH);
+		explicit_bzero(mRollKey, EVP_MAX_KEY_LENGTH);
 		free(mMacKey);
 		free(mEncKey);
+		free(mHashKey);
+		free(mRollKey);
 	}
 	
 	AsyncProgress<bool> Repository::initializeRepository(const char *password, int rounds)
@@ -52,17 +58,19 @@ namespace Nebula
 		std::shared_ptr<AsyncProgressData<bool>> asyncProgress = std::make_shared<AsyncProgressData<bool>>();
 
 		// derive key from password
-		ZeroedArray<uint8_t, 32> derivedKey;
+		ZeroedArray<uint8_t, EVP_MAX_MD_SIZE> derivedKey;
 		
-		uint8_t salt[32];
+		uint8_t salt[PKCS5_SALT_LEN];
 		arc4random_buf(salt, sizeof(salt));
-		if(!PKCS5_PBKDF2_HMAC(password, strlen(password), salt, sizeof(salt), rounds, EVP_sha256(), derivedKey.size(), derivedKey.data())) {
+		if(!PKCS5_PBKDF2_HMAC(password, strlen(password), salt, sizeof(salt), rounds, EVP_sha512(), derivedKey.size(), derivedKey.data())) {
 			throw EncryptionFailedException("Failed to set password.");
 		}
 		
 		// random generate the encryption key
-		arc4random_buf(mEncKey, 32);
-		arc4random_buf(mMacKey, 32);
+		arc4random_buf(mEncKey, EVP_MAX_KEY_LENGTH);
+		arc4random_buf(mMacKey, EVP_MAX_KEY_LENGTH);
+		arc4random_buf(mHashKey, EVP_MAX_KEY_LENGTH);
+		arc4random_buf(mRollKey, EVP_MAX_KEY_LENGTH);
 		
 		// encrypt the encryption key with the derived key
 		uint8_t keyData[1024];
@@ -77,20 +85,22 @@ namespace Nebula
 		v = rounds;
 		keyStream.write(&v, sizeof(v));
 
-		keyStream.write(salt, 32);
+		keyStream.write(salt, PKCS5_SALT_LEN);
 
 		// encrypt key with the derived key
-		uint8_t encBytes[128];
+		uint8_t encBytes[EVP_MAX_KEY_LENGTH * 4 + EVP_MAX_BLOCK_LENGTH];
 		MemoryOutputStream outStream(encBytes, sizeof(encBytes));
 		EncryptedOutputStream encStream(outStream, EVP_aes_256_cbc(), derivedKey.data());
-		encStream.write(mEncKey, 32);
-		encStream.write(mMacKey, 32);
+		encStream.write(mEncKey, EVP_MAX_KEY_LENGTH);
+		encStream.write(mMacKey, EVP_MAX_KEY_LENGTH);
+		encStream.write(mHashKey, EVP_MAX_KEY_LENGTH);
+		encStream.write(mRollKey, EVP_MAX_KEY_LENGTH);
 		encStream.close();
 		outStream.close();
 		
 		keyStream.write(outStream.data(), outStream.size());
 
-		uint8_t hmac[32];
+		uint8_t hmac[EVP_MAX_MD_SIZE];
 		unsigned int hmacLen = sizeof(hmac);
 		if(!HMAC(EVP_sha256(), derivedKey.data(), derivedKey.size(),
 				 outStream.data(), outStream.size(), hmac, &hmacLen)) {
@@ -155,17 +165,17 @@ namespace Nebula
 						return;
 					}
 					
-					uint8_t salt[32];
+					uint8_t salt[PKCS5_SALT_LEN];
 					stream.read(salt, sizeof(salt));
-					ZeroedArray<uint8_t, 32> derivedKey;
-					if(!PKCS5_PBKDF2_HMAC(password, strlen(password), salt, sizeof(salt), rounds, EVP_sha256(), derivedKey.size(), derivedKey.data())) {
+					ZeroedArray<uint8_t, EVP_MAX_KEY_LENGTH> derivedKey;
+					if(!PKCS5_PBKDF2_HMAC(password, strlen(password), salt, sizeof(salt), rounds, EVP_sha512(), derivedKey.size(), derivedKey.data())) {
 						asyncProgress->setError("Failed to unlock using password.");
 						return;
 					}
 
-					uint8_t encKeyData[112];
-					uint8_t hmac1[32];
-					uint8_t hmac2[32];
+					uint8_t encKeyData[EVP_MAX_KEY_LENGTH * 4 + EVP_MAX_BLOCK_LENGTH];
+					uint8_t hmac1[EVP_MAX_MD_SIZE];
+					uint8_t hmac2[EVP_MAX_MD_SIZE];
 					stream.read(encKeyData, sizeof(encKeyData));
 					stream.read(hmac1, sizeof(hmac1));
 					unsigned int hmacKeyLen = sizeof(hmac2);
@@ -176,7 +186,7 @@ namespace Nebula
 					}
 
 					// password failure
-					if(memcmp(hmac1, hmac2, sizeof(hmac1)) != 0) {
+					if(memcmp(hmac1, hmac2, hmacKeyLen) != 0) {
 						asyncProgress->setReady(false);
 						return;
 					}
@@ -184,8 +194,10 @@ namespace Nebula
 					MemoryInputStream encKeyStream(encKeyData, sizeof(encKeyData));
 
 					DecryptedInputStream decStream(encKeyStream, EVP_aes_256_cbc(), derivedKey.data());
-					decStream.read(mEncKey, 32);
-					decStream.read(mMacKey, 32);
+					decStream.read(mEncKey, EVP_MAX_KEY_LENGTH);
+					decStream.read(mMacKey, EVP_MAX_KEY_LENGTH);
+					decStream.read(mHashKey, EVP_MAX_KEY_LENGTH);
+					decStream.read(mRollKey, EVP_MAX_KEY_LENGTH);
 				}
 				asyncProgress->setReady(ready);
 			})

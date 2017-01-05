@@ -73,5 +73,7 @@ namespace Nebula
 		DataStore *mDataStore;
 		uint8_t *mEncKey;
 		uint8_t *mMacKey;
+		uint8_t *mHashKey;
+		uint8_t *mRollKey;
 	};
 }
