@@ -18,6 +18,7 @@
 
 #include <stdint.h>
 #include <vector>
+#include "ZeroedArray.h"
 
 namespace Nebula
 {
@@ -30,20 +31,23 @@ namespace Nebula
 		/**
 		 * Creates a rolling hash with the specified window size
 		 */
-		RollingHash(int windowSize);
+		RollingHash(uint8_t *key, int windowSize);
+		~RollingHash();
 		
 		/**
 		 * Updates the rolling hash with the byte.
 		 */
 		uint32_t roll(uint8_t c);
 		
-		uint32_t hash() const { return mHash; }
+		uint32_t hash() const { return mEncHash; }
 	private:
-		enum { Constant = 33 };
+		uint32_t mConstant;
 		uint32_t mHash;
+		uint32_t mEncHash;
 		uint32_t mConstantPowWinSize;
 		int mWindowSize;
 		int mIndex;
 		std::vector<uint8_t> mWindow;
+		ZeroedArray<uint8_t, 32> mKey;
 	};
 }

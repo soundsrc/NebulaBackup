@@ -34,7 +34,10 @@ TEST(RollingHashTests, Roll) {
 	arc4random_buf(&mHash[0], 16384);
 	memcpy(&mHash[16384], &mHash[0], 16384);
 	
-	RollingHash h(16384);
+	uint8_t key[32];
+	arc4random_buf(key, sizeof(key));
+
+	RollingHash h(key, 16384);
 	uint32_t hash1, hash2;
 	for(int i = 0; i < 16384; ++i) {
 		 h.roll(mHash[i]);
@@ -54,15 +57,17 @@ TEST(RollingHashTests, Distribution)
 
 	srand(time(nullptr));
 	
-	RollingHash h(16384);
+	uint8_t key[32];
+	arc4random_buf(key, sizeof(key));
+	RollingHash h(key, 16384);
 	uint64_t sum = 0;
 	for(int i = 0; i < 100; ++i) {
 		uint64_t bytes = 0;
-		while((h.roll(rand() & 0xFF) & ((1 << 25) - 1)) != 0) {
+		while((h.roll(rand() & 0xFF) & ((1 << 20) - 1)) != 0) {
 			++bytes;
 		}
 		sum += bytes;
-		printf("Rolling size: %d bytes\n", bytes);
+		printf("Rolling size: %ull bytes\n", bytes);
 	}
 	printf("Average rolling size: %llu bytes\n", sum / 100);
 }
