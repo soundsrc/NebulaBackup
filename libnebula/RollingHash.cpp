@@ -31,10 +31,17 @@ namespace Nebula
 	, mIndex(windowSize - 1)
 	{
 		mWindow.resize(windowSize);
-		
-		// there is definately a faster way to calculate this
-		for(int i = 0; i < windowSize; ++i) {
-			mConstantPowWinSize *= Constant;
+
+		// mConstantPowWinSize = (mConstant ^ windowSize) mod (2^32-1)
+
+		mConstantPowWinSize = 1;
+		uint32_t base = mConstant;
+		while(windowSize > 0) {
+			if(windowSize & 1) {
+				mConstantPowWinSize = (base * mConstantPowWinSize);
+			}
+			base = base * base;
+			windowSize >>= 1;
 		}
 
 		memcpy(mKey.data(), key, 32);
