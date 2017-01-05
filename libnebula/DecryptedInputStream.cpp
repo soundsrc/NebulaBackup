@@ -28,7 +28,7 @@ namespace Nebula
 			throw EncryptionFailedException("Failed to create cipher.");
 		}
 		
-		uint8_t iv[32];
+		uint8_t iv[EVP_MAX_IV_LENGTH];
 		if(stream.read(iv, sizeof(iv)) != sizeof(iv)) {
 			throw EncryptionFailedException("Failed to read encryption iv.");
 		}
@@ -46,7 +46,7 @@ namespace Nebula
 	
 	size_t DecryptedInputStream::read(void *data, size_t size)
 	{
-		uint8_t buffer[4096 + PaddingExtra];
+		uint8_t buffer[4096 + EVP_MAX_BLOCK_LENGTH];
 		size_t n;
 		uint8_t *p = (uint8_t *)data;
 		size_t bytesRead = 0;

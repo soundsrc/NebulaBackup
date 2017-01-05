@@ -32,8 +32,6 @@ namespace Nebula
 		virtual void flush() override;
 		virtual void close() override;
 	private:
-		enum { PaddingExtra = 128 };
-
 		OutputStream& mStream;
 		EVP_CIPHER_CTX *mCtx;
 	};

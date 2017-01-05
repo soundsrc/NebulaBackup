@@ -29,7 +29,7 @@ namespace Nebula
 			throw EncryptionFailedException("Failed to create cipher.");
 		}
 		
-		uint8_t iv[32];
+		uint8_t iv[EVP_MAX_IV_LENGTH];
 		arc4random_buf(iv, sizeof(iv));
 
 		if(!EVP_EncryptInit_ex(mCtx, cipher, nullptr, key, iv)) {
@@ -49,7 +49,7 @@ namespace Nebula
 	void EncryptedOutputStream::write(const void *data, size_t size)
 	{
 		ZeroedArray<uint8_t, 4096> buffer;
-		uint8_t encBuffer[4096 + PaddingExtra];
+		uint8_t encBuffer[4096 + EVP_MAX_BLOCK_LENGTH];
 		int outLen;
 		
 		int bytesWritten = 0;
@@ -77,7 +77,7 @@ namespace Nebula
 	
 	void EncryptedOutputStream::close()
 	{
-		ZeroedArray<uint8_t, 128> padBuffer;
+		ZeroedArray<uint8_t, EVP_MAX_BLOCK_LENGTH> padBuffer;
 		int outLen;
 		if(!EVP_EncryptFinal_ex(mCtx, padBuffer.data(), &outLen)) {
 			throw EncryptionFailedException("Failed to write padding.");

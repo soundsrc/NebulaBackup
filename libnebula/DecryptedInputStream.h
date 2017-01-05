@@ -31,10 +31,9 @@ namespace Nebula
 		
 		virtual size_t read(void *data, size_t size) override;
 	private:
-		enum { PaddingExtra = 128 };
 		InputStream& mStream;
 		EVP_CIPHER_CTX *mCtx;
-		ZeroedArray<uint8_t, 4096 + PaddingExtra> mBuffer;
+		ZeroedArray<uint8_t, 4096 + EVP_MAX_BLOCK_LENGTH> mBuffer;
 		const uint8_t *mBufferPtr;
 		int mBytesInBuffer;
 		bool mDone;
