@@ -28,6 +28,7 @@ extern "C" {
 #include "libnebula/LZMAUtils.h"
 #include "libnebula/LZMAInputStream.h"
 #include "libnebula/FileStream.h"
+#include "libnebula/BufferedInputStream.h"
 #include "libnebula/MemoryInputStream.h"
 #include "libnebula/MemoryOutputStream.h"
 #include "libnebula/EncryptedOutputStream.h"
@@ -95,6 +96,29 @@ TEST(StreamTests, MemoryStreamReadWrite)
 		testReadWriteStream(outStream, size,
 							[&buffer, size]() -> InputStream * {
 								return new MemoryInputStream(&buffer[0], size);
+							}, bufferSize);
+	}
+}
+
+TEST(StreamTests, BufferedStreamReadWrite)
+{
+	using namespace Nebula;
+	
+	std::vector<uint8_t> buffer;
+	buffer.reserve(1000000);
+	
+	srand(time(nullptr));
+	for(int i = 0; i < 16; ++i) {
+		size_t size = 1 + (rand() % 1000000);
+		size_t bufferSize = 1 + (rand() % 1024);
+		
+		buffer.resize(size);
+		
+		MemoryOutputStream outStream(&buffer[0], size);
+		MemoryInputStream inStream(&buffer[0], size);
+		testReadWriteStream(outStream, size,
+							[&buffer, size, &inStream]() -> InputStream * {
+								return new BufferedInputStream(inStream);
 							}, bufferSize);
 	}
 }
