@@ -16,29 +16,34 @@
 
 #pragma once
 
-#include <stdexcept>
-#include <string>
+#include <stdio.h>
+#include "InputStream.h"
+#include "OutputStream.h"
 
 namespace Nebula
 {
-#define DEFINE_EXCEPTION(Exception) \
-class Exception : public std::runtime_error \
-{ \
-public: \
-	Exception(const std::string& err) : std::runtime_error(err) { } \
-}
-	
-	DEFINE_EXCEPTION(FileNotFoundException);
-	DEFINE_EXCEPTION(FileIOException);
-	DEFINE_EXCEPTION(DiskQuotaExceededException);
-	DEFINE_EXCEPTION(InvalidArgumentException);
-	DEFINE_EXCEPTION(RepositoryLockedException);
-	DEFINE_EXCEPTION(InvalidRepositoryException);
-	DEFINE_EXCEPTION(InvalidDataException);
-	DEFINE_EXCEPTION(EncryptionFailedException);
-	DEFINE_EXCEPTION(InsufficientBufferSizeException);
-	DEFINE_EXCEPTION(LZMAException);
-	
-#undef DEFINE_EXCEPTION
-
+	enum class FileMode
+	{
+		Read,
+		Write,
+		ReadWrite
+	};
+	class FileStream : public InputStream, public OutputStream
+	{
+	public:
+		FileStream();
+		FileStream(const char *path, FileMode mode);
+		~FileStream();
+		
+		bool open(const char *path, FileMode mode);
+		long length() const;
+		
+		void rewind();
+		long seek(long offset);
+		virtual size_t read(void *data, size_t size) override;
+		virtual void write(const void *data, size_t size) override;
+		virtual void close() override;
+	private:
+		FILE *mFp;
+	};
 }
