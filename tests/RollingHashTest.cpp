@@ -67,7 +67,7 @@ TEST(RollingHashTests, Distribution)
 			++bytes;
 		}
 		sum += bytes;
-		printf("Rolling size: %ull bytes\n", bytes);
+		printf("Rolling size: %llu bytes\n", bytes);
 	}
 	printf("Average rolling size: %llu bytes\n", sum / 100);
 }
