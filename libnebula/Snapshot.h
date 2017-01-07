@@ -27,7 +27,7 @@
 namespace Nebula
 {
 	class OutputStream;
-	class InputStream;
+	class FileStream;
 	class Repository;
 
 	/**
@@ -46,7 +46,7 @@ namespace Nebula
 		 * A file maybe uploaded to the backup, however, it won't have an
 		 * reference until commit() is called.
 		 */
-		AsyncProgress<bool> uploadFile(const char *path, InputStream& inputStream);
+		AsyncProgress<bool> uploadFile(const char *path, FileStream& fileStream);
 		
 		/**
 		 * Download a file.
@@ -110,11 +110,19 @@ namespace Nebula
 				return strcmp(a.path, b.path) < 0;
 			}
 		};
+		
+		struct MallocDeletor;
 
 		//
 		std::set<const char *, StringComparer> mStringTable;
 		std::vector<char, ZeroedAllocator<char>> mStringBuffer;
 		std::vector<BlockHash, ZeroedAllocator<BlockHash>> mBlockHashes;
 		std::set<FileInfo, FileInfoComparer, ZeroedAllocator<FileInfo>> mFiles;
+	
+		char nibbleToHex(uint8_t nb) const;
+		int hexToNibble(char h) const;
+		std::string hmac256ToString(uint8_t *hmac) const;
+		void hmac256strToHmac(const char *str, uint8_t *outHmac);
+		AsyncProgress<bool> uploadBlock(const uint8_t *block, size_t size);
 	};
 }

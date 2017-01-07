@@ -35,6 +35,8 @@ namespace Nebula
 			}
 			return 0;
 		}
+		
+		bool isEof() { return !reload(); }
 
 	private:
 		InputStream& mStream;

@@ -69,6 +69,12 @@ namespace Nebula
 		 */
 		AsyncProgress<bool> changePassword(const char *oldPassword, const char *newPassword);
 
+		
+		DataStore *dataStore() { return mDataStore; }
+		const uint8_t *encKey() const { return mEncKey; }
+		const uint8_t *macKey() const { return mMacKey; }
+		const uint8_t *hashKey() const { return mHashKey; }
+		const uint8_t *rollKey() const { return mRollKey; }
 	private:
 		DataStore *mDataStore;
 		uint8_t *mEncKey;

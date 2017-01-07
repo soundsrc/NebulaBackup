@@ -31,7 +31,7 @@ namespace Nebula
 		/**
 		 * Creates a rolling hash with the specified window size
 		 */
-		RollingHash(uint8_t *key, int windowSize);
+		RollingHash(const uint8_t *key, int windowSize);
 		~RollingHash();
 		
 		/**

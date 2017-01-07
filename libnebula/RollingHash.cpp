@@ -23,7 +23,7 @@
 
 namespace Nebula
 {
-	RollingHash::RollingHash(uint8_t *key, int windowSize)
+	RollingHash::RollingHash(const uint8_t *key, int windowSize)
 	: mConstant(33)
 	, mHash(0)
 	, mEncHash(0)
@@ -82,6 +82,6 @@ namespace Nebula
 		mEncHash = mHash;
 #endif
 
-		return mEncHash;
+		return mEncHash + 0x12a7931e; // <-- literally a random magic number
 	}
 }
