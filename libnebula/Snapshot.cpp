@@ -222,10 +222,10 @@ namespace Nebula
 			return strIndex->second;
 		}
 
-		size_t n = strlen(str);
+		size_t n = strlen(str) + 1;
 		int idx = mStringBuffer.size();
 		mStringBuffer.resize((mStringBuffer.size() + n + 3) & ~3);
-		strncpy(&mStringBuffer[idx], str, n + 1);
+		strncpy(&mStringBuffer[idx], str, n);
 
 		return n;
 	}
