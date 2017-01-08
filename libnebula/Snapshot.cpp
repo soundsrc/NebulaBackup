@@ -14,6 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 #include <memory>
+#include <mutex>
 #include <math.h>
 #include <ctype.h>
 #include <boost/filesystem.hpp>
@@ -25,6 +26,7 @@
 #include "MemoryInputStream.h"
 #include "MemoryOutputStream.h"
 #include "FileStream.h"
+#include "FileInfo.h"
 #include "Repository.h"
 #include "LZMAUtils.h"
 #include "EncryptedOutputStream.h"
@@ -36,6 +38,7 @@ namespace Nebula
 {
 	Snapshot::Snapshot(Repository& repo)
 	: mRepository(repo)
+	, mFiles(FileEntryComparer(mStringBuffer), ZeroedAllocator<FileEntry>())
 	{
 	}
 	
@@ -86,11 +89,16 @@ namespace Nebula
 		}
 	};
 
-	void Snapshot::uploadBlock(const uint8_t *block, size_t size, ProgressFunction progress)
+	void Snapshot::uploadBlock(const uint8_t *block, size_t size, uint8_t *outhmac, ProgressFunction progress)
 	{
-		uint8_t filemac[SHA256_DIGEST_LENGTH];
-		if(!HMAC(EVP_sha256(), mRepository.hashKey(), SHA256_DIGEST_LENGTH, block, size, filemac, nullptr)) {
+		if(!HMAC(EVP_sha256(), mRepository.hashKey(), SHA256_DIGEST_LENGTH, block, size, outhmac, nullptr)) {
 			throw EncryptionFailedException("Failed to HMAC block.");
+		}
+		
+		// if the block already exists in the repository, skip the upload
+		std::string uploadPath = "/data/" + hmac256ToString(outhmac);
+		if(mRepository.dataStore()->exist(uploadPath.c_str())) {
+			return;
 		}
 		
 		MemoryInputStream blockStream(block, size);
@@ -110,7 +118,7 @@ namespace Nebula
 		encOutStream.close();
 		
 		MemoryInputStream uploadStream(encOutStream.data(), encOutStream.size());
-		mRepository.dataStore()->put(("/data/" + hmac256ToString(filemac)).c_str(), uploadStream);
+		mRepository.dataStore()->put(("/data/" + hmac256ToString(outhmac)).c_str(), uploadStream);
 	}
 
 	void Snapshot::uploadFile(const char *path, FileStream& fileStream, ProgressFunction progress)
@@ -118,44 +126,98 @@ namespace Nebula
 		using namespace boost;
 
 		RollingHash rh(mRepository.rollKey(), 8192);
+
+		FileEntry fileEntry;
 		
-		size_t fileSize = fileStream.length();
+		FileInfo fileInfo( fileStream.path().c_str() );
+		if(!fileInfo.exists()) {
+			throw FileNotFoundException("File not found");
+		}
+
+		fileEntry.size = fileInfo.length();
+		fileEntry.mode = fileInfo.mode();
+		fileEntry.type = (int)fileInfo.type();
+		fileEntry.numBlocks = 0;
+		
+		std::vector<BlockHash> blockHash;
+		blockHash.reserve(32);
+		
+		SHA256_CTX sha256;
+		SHA256_Init(&sha256);
 
 		// don't bother with splitting the file if it's < 1MB
 		// just upload as is
-		if(fileSize < 1024 * 1024) {
+		if(fileEntry.size < 1024 * 1024) {
 
 			std::unique_ptr<uint8_t, MallocDeletor>
-				buffer( (uint8_t *)malloc(fileSize) );
-			if(fileStream.read(buffer.get(), fileSize) != fileSize) {
+				buffer( (uint8_t *)malloc(fileEntry.size) );
+			if(fileStream.read(buffer.get(), fileEntry.size) != fileEntry.size) {
 				throw FileIOException("Failed to read file.");
 			}
+			
+			SHA256_Update(&sha256, buffer.get(), fileEntry.size);
 
-			uploadBlock(buffer.get(), fileSize, progress);
+			uploadBlock(buffer.get(), fileEntry.size, nullptr, progress);
+			++fileEntry.numBlocks;
 		} else {
 
-			// determine how to split
-			uint32_t blockSizeLog = ceil(log(fileSize / 8) / log(2));
-			if(blockSizeLog < 16) blockSizeLog = 16;
-			uint32_t hashMask = (1 << blockSizeLog) - 1;
+			// the block size is dynamically determined based on file length
+			// and increases bigger for larger file sizes
+			// TODO: make these values configurable
+			fileEntry.blockSizeLog = ceil(log(fileEntry.size / 8) / log(2));
+			if(fileEntry.blockSizeLog  < 16) fileEntry.blockSizeLog  = 16;
+			if(fileEntry.blockSizeLog  > 25) fileEntry.blockSizeLog  = 25;
+			uint32_t hashMask = (1 << fileEntry.blockSizeLog) - 1;
 
 			std::vector<uint8_t> blockBuffer;
-			blockBuffer.reserve(1 << (1 + blockSizeLog));
+			blockBuffer.reserve(1 << (1 + fileEntry.blockSizeLog));
 			
 			BufferedInputStream bufferedFile(fileStream);
 			while(!bufferedFile.isEof()) {
 				uint8_t b = bufferedFile.readByte();
 				blockBuffer.push_back(b);
 				if((rh.roll(b) & hashMask) == 0) {
+					
+					SHA256_Update(&sha256, &blockBuffer[0], blockBuffer.size());
 					// upload block
-					uploadBlock(&blockBuffer[0], blockBuffer.size(), progress);
+					uploadBlock(&blockBuffer[0], blockBuffer.size(), nullptr, progress);
+					++fileEntry.numBlocks;
 					blockBuffer.clear();
 				}
 			}
 
 			if(!blockBuffer.empty()) {
-				uploadBlock(&blockBuffer[0], blockBuffer.size(), progress);
+				SHA256_Update(&sha256, &blockBuffer[0], blockBuffer.size());
+				uploadBlock(&blockBuffer[0], blockBuffer.size(), nullptr, progress);
+				++fileEntry.numBlocks;
 			}
 		}
+
+		// write the SHA256
+		SHA256_Final(fileEntry.sha256, &sha256);
+
+		// update the index
+		std::lock_guard<std::mutex> lock(mMutex);
+
+		fileEntry.path = insertStringTable(path);
+		fileEntry.user = insertStringTable(fileInfo.userName().c_str());
+		fileEntry.group = insertStringTable(fileInfo.groupName().c_str());
+		
+		mFiles.insert(fileEntry);
+	}
+	
+	int Snapshot::insertStringTable(const char *str)
+	{
+		auto strIndex = mStringTable.find(str);
+		if(strIndex != mStringTable.end()) {
+			return strIndex->second;
+		}
+
+		size_t n = strlen(str);
+		int idx = mStringBuffer.size();
+		mStringBuffer.resize((mStringBuffer.size() + n + 3) & ~3);
+		strncpy(&mStringBuffer[idx], str, n + 1);
+
+		return n;
 	}
 }

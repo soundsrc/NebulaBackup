@@ -16,10 +16,13 @@
 
 #pragma once
 
+#include <mutex>
 #include <string>
 #include <set>
+#include <map>
 #include <vector>
 #include <stdint.h>
+#include <string.h>
 #include "ProgressFunction.h"
 #include "ZeroedString.h"
 #include "ZeroedAllocator.h"
@@ -68,27 +71,19 @@ namespace Nebula
 		Repository& mRepository;
 		std::string mName;
 		
-		enum class TypeFlag
-		{
-			NormalFile,
-			Directory,
-			SymLink,
-			CharacterSpecial,
-			BlockSpecial
-		};
-		
 		struct BlockHash
 		{
 			int size;
-			uint8_t sha256[32];
+			uint8_t hmac256[32];
 		};
 
-		struct FileInfo
+		struct FileEntry
 		{
-			const char *path; // pathname to the file
-			const char *uid; // unix user id
-			const char *group; // unix group name
-			long size; // size of file in bytes
+			int path; // pathname to the file
+			int user; // unix user id
+			int group; // unix group name
+			uint16_t mode; // mode
+			uint64_t size; // size of file in bytes
 			time_t mtime; // modify time
 			uint8_t type; // flags
 			uint8_t blockSizeLog;
@@ -99,30 +94,39 @@ namespace Nebula
 		
 		class StringComparer
 		{
-			bool operator ()(const char *a, const char *b) {
+		public:
+			bool operator ()(const char *a, const char *b) const {
 				return strcmp(a, b) < 0;
 			}
 		};
 		
-		class FileInfoComparer
+		class FileEntryComparer
 		{
-			bool operator ()(const FileInfo& a, const FileInfo& b) {
-				return strcmp(a.path, b.path) < 0;
+		public:
+			explicit FileEntryComparer(const std::vector<char, ZeroedAllocator<char>>& stringTable) : mStringTable(stringTable) { }
+			
+			bool operator ()(const FileEntry& a, const FileEntry& b) {
+				return strcmp(&mStringTable[a.path], &mStringTable[b.path]) < 0;
 			}
+		private:
+			const std::vector<char, ZeroedAllocator<char>>& mStringTable;
 		};
 		
 		struct MallocDeletor;
 
 		//
-		std::set<const char *, StringComparer> mStringTable;
+		std::map<const char *, int, StringComparer> mStringTable;
 		std::vector<char, ZeroedAllocator<char>> mStringBuffer;
 		std::vector<BlockHash, ZeroedAllocator<BlockHash>> mBlockHashes;
-		std::set<FileInfo, FileInfoComparer, ZeroedAllocator<FileInfo>> mFiles;
+		std::set<FileEntry, FileEntryComparer, ZeroedAllocator<FileEntry>> mFiles;
+		
+		std::mutex mMutex;
 	
 		char nibbleToHex(uint8_t nb) const;
 		int hexToNibble(char h) const;
 		std::string hmac256ToString(uint8_t *hmac) const;
 		void hmac256strToHmac(const char *str, uint8_t *outHmac);
-		void uploadBlock(const uint8_t *block, size_t size, ProgressFunction progress = DefaultProgressFunction);
+		void uploadBlock(const uint8_t *block, size_t size, uint8_t *outhmac, ProgressFunction progress = DefaultProgressFunction);
+		int insertStringTable(const char *str);
 	};
 }
