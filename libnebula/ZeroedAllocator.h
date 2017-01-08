@@ -25,17 +25,30 @@ namespace Nebula
 	template<typename T>
 	struct ZeroedAllocator
 	{
-		typedef T value_type;
+		typedef size_t     size_type;
+		typedef ptrdiff_t  difference_type;
+		typedef T*         pointer;
+		typedef const T*   const_pointer;
+		typedef T&        reference;
+		typedef const T&    const_reference;
+		typedef T          value_type;
+		
+		template<typename U>
+		struct rebind
+		{
+			typedef ZeroedAllocator<U> other;
+		};
 
+		
 		ZeroedAllocator() { }
 		template <class U> ZeroedAllocator(const ZeroedAllocator<U>& other) { }
 
-		T* allocate(std::size_t n)
+		pointer allocate(size_type n)
 		{
-			return ::operator new (n);
+			return (T *)::operator new (n * sizeof(T));
 		}
 		
-		void deallocate(T* p, std::size_t n)
+		void deallocate(pointer p, size_type n)
 		{
 			explicit_bzero(p, n);
 			::operator delete(p);
