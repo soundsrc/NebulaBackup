@@ -77,6 +77,8 @@ error:
 			return false;
 		}
 		
+		mPath = path;
+
 		return true;
 	}
 
@@ -125,6 +127,7 @@ error:
 		if(mFp) {
 			fclose(mFp);
 			mFp = nullptr;
+			mPath = "";
 		}
 	}
 }

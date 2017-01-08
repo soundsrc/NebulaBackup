@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <string>
 #include <stdio.h>
 #include "InputStream.h"
 #include "OutputStream.h"
@@ -38,6 +39,8 @@ namespace Nebula
 		bool open(const char *path, FileMode mode);
 		long length() const;
 		
+		const std::string& path() const { return mPath; }
+
 		void rewind();
 		long seek(long offset);
 		virtual size_t read(void *data, size_t size) override;
@@ -45,5 +48,6 @@ namespace Nebula
 		virtual void close() override;
 	private:
 		FILE *mFp;
+		std::string mPath;
 	};
 }
