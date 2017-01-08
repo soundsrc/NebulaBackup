@@ -18,6 +18,7 @@
 #include <vector>
 #include <string.h>
 #include <boost/filesystem.hpp>
+#include "libnebula/Exception.h"
 #include "libnebula/DataStore.h"
 #include "libnebula/backends/FileDataStore.h"
 #include "libnebula/MemoryInputStream.h"
@@ -35,7 +36,7 @@ TEST(DataStoreTests, PutAndGet) {
 	EXPECT_TRUE( create_directory(tmpPath) );
 	
 	{
-		ScopedExit onExit([tmpPath] { remove_all(tmpPath); });
+		scopedExit([tmpPath] { remove_all(tmpPath); });
 
 		FileDataStore ds(tmpPath.c_str());
 
@@ -46,18 +47,10 @@ TEST(DataStoreTests, PutAndGet) {
 		arc4random_buf(data2, sizeof(data2));
 		
 		MemoryInputStream dataStream(data1, sizeof(data1));
-		AsyncProgress<bool> progress = ds.put("/dddddd", dataStream);
-		progress.wait();
-		EXPECT_FALSE(progress.hasError());
-		EXPECT_TRUE(progress.isReady());
-		EXPECT_TRUE(progress.result());
-		
+		EXPECT_NO_THROW(ds.put("/dddddd", dataStream));
+
 		MemoryOutputStream outStream(data2, sizeof(data2));
-		progress = ds.get("/dddddd", outStream);
-		progress.wait();
-		EXPECT_FALSE(progress.hasError());
-		EXPECT_TRUE(progress.isReady());
-		EXPECT_TRUE(progress.result());
+		EXPECT_TRUE(ds.get("/dddddd", outStream));
 		
 		EXPECT_TRUE(memcmp(data1, data2, sizeof(data1)) == 0);
 	}
@@ -74,7 +67,7 @@ TEST(DataStoreTests, PutAndGetWithSubPaths) {
 	EXPECT_TRUE( create_directory(tmpPath) );
 	
 	{
-		ScopedExit onExit([tmpPath] { remove_all(tmpPath); });
+		scopedExit([tmpPath] { remove_all(tmpPath); });
 		
 		FileDataStore ds(tmpPath.c_str());
 		
@@ -85,18 +78,10 @@ TEST(DataStoreTests, PutAndGetWithSubPaths) {
 		arc4random_buf(data2, sizeof(data2));
 		
 		MemoryInputStream dataStream(data1, sizeof(data1));
-		AsyncProgress<bool> progress = ds.put("/subpath/dddddd", dataStream);
-		progress.wait();
-		EXPECT_FALSE(progress.hasError());
-		EXPECT_TRUE(progress.isReady());
-		EXPECT_TRUE(progress.result());
-		
+		EXPECT_NO_THROW(ds.put("/subpath/dddddd", dataStream));
+
 		MemoryOutputStream outStream(data2, sizeof(data2));
-		progress = ds.get("/subpath/dddddd", outStream);
-		progress.wait();
-		EXPECT_FALSE(progress.hasError());
-		EXPECT_TRUE(progress.isReady());
-		EXPECT_TRUE(progress.result());
+		EXPECT_TRUE(ds.get("/subpath/dddddd", outStream));
 		
 		EXPECT_TRUE(memcmp(data1, data2, sizeof(data1)) == 0);
 	}
@@ -104,7 +89,7 @@ TEST(DataStoreTests, PutAndGetWithSubPaths) {
 	EXPECT_FALSE(exists(tmpPath));
 }
 
-TEST(DataStoreTests, PutOverwrite) {
+TEST(DataStoreTests, Existance) {
 	using namespace boost::filesystem;
 	using namespace Nebula;
 	
@@ -112,7 +97,7 @@ TEST(DataStoreTests, PutOverwrite) {
 	EXPECT_TRUE( create_directory(tmpPath) );
 	
 	{
-		ScopedExit onExit([tmpPath] { remove_all(tmpPath); });
+		scopedExit([tmpPath] { remove_all(tmpPath); });
 		
 		FileDataStore ds(tmpPath.c_str());
 		
@@ -123,19 +108,10 @@ TEST(DataStoreTests, PutOverwrite) {
 		arc4random_buf(data2, sizeof(data2));
 		
 		MemoryInputStream dataStream(data1, sizeof(data1));
-		AsyncProgress<bool> progress = ds.put("/subpath/xxx", dataStream);
-		progress.wait();
-		EXPECT_FALSE(progress.hasError());
-		EXPECT_TRUE(progress.isReady());
-		EXPECT_TRUE(progress.result());
+		EXPECT_NO_THROW(ds.put("/subpath/xxx", dataStream));
 		
-		// put should return false status if attempt overwrite
-		MemoryInputStream dataStream2(data2, sizeof(data2));
-		progress = ds.put("/subpath/xxx", dataStream2);
-		progress.wait();
-		EXPECT_FALSE(progress.hasError());
-		EXPECT_TRUE(progress.isReady());
-		EXPECT_FALSE(progress.result());
+		EXPECT_TRUE(ds.exist("/subpath/xxx"));
+		EXPECT_FALSE(ds.exist("/subpath/xxx1"));
 	}
 	
 	EXPECT_FALSE(exists(tmpPath));
@@ -151,10 +127,7 @@ TEST(DataStoreTests, GetNotFound) {
 		uint8_t data[12];
 		
 		MemoryOutputStream outStream(data, sizeof(data));
-		AsyncProgress<bool> progress = ds.get("/notfound", outStream);
-		progress.wait();
-		EXPECT_TRUE(progress.isReady());
-		EXPECT_FALSE(progress.result());
+		EXPECT_FALSE(ds.get("/notfound", outStream));
 	}
 }
 
@@ -166,7 +139,7 @@ TEST(DataStoreTests, GetNotEnoughSpace) {
 	EXPECT_TRUE( create_directory(tmpPath) );
 	
 	{
-		ScopedExit onExit([tmpPath] { remove_all(tmpPath); });
+		scopedExit([tmpPath] { remove_all(tmpPath); });
 		
 		FileDataStore ds(tmpPath.c_str());
 		
@@ -177,16 +150,10 @@ TEST(DataStoreTests, GetNotEnoughSpace) {
 		arc4random_buf(data2, sizeof(data2));
 		
 		MemoryInputStream dataStream(data1, sizeof(data1));
-		AsyncProgress<bool> progress = ds.put("/ewfewfe", dataStream);
-		progress.wait();
-		EXPECT_TRUE(progress.isReady());
-		EXPECT_TRUE(progress.result());
+		EXPECT_NO_THROW(ds.put("/ewfewfe", dataStream));
 		
 		MemoryOutputStream outStream(data2, sizeof(data2));
-		progress = ds.get("/ewfewfe", outStream);
-		progress.wait();
-		EXPECT_FALSE(progress.isReady());
-		EXPECT_TRUE(progress.hasError());
+		EXPECT_THROW(ds.get("/ewfewfe", outStream), InsufficientBufferSizeException);
 	}
 	
 	EXPECT_FALSE(exists(tmpPath));
@@ -201,7 +168,7 @@ TEST(DataStoreTests, List) {
 	EXPECT_TRUE( create_directory(tmpPath) );
 	
 	{
-		ScopedExit onExit([tmpPath] { remove_all(tmpPath); });
+		scopedExit([tmpPath] { remove_all(tmpPath); });
 		uint8_t buffer[32];
 		arc4random_buf(buffer, sizeof(buffer));
 		
@@ -225,10 +192,7 @@ TEST(DataStoreTests, List) {
 		for(int i = 0; i < sizeof(paths) / sizeof(paths[0]); ++i)
 		{
 			MemoryInputStream m(buffer, sizeof(buffer));
-			AsyncProgress<bool> progress = ds.put(paths[i], m);
-			progress.wait();
-			EXPECT_TRUE(progress.isReady());
-			EXPECT_TRUE(progress.result());
+			EXPECT_NO_THROW(ds.put(paths[i], m));
 			pathSet.insert(paths[i]);
 		}
 		
@@ -240,7 +204,7 @@ TEST(DataStoreTests, List) {
 					pathSet.erase(it);
 				}
 			}
-		}, nullptr).wait();
+		}, nullptr);
 		EXPECT_EQ(pathSet.size(), 0);
 	}
 	
@@ -255,28 +219,20 @@ TEST(DataStoreTests, Deletion) {
 	EXPECT_TRUE( create_directory(tmpPath) );
 	
 	{
-		ScopedExit onExit([tmpPath] { remove_all(tmpPath); });
+		scopedExit([tmpPath] { remove_all(tmpPath); });
 		
 		FileDataStore ds(tmpPath.c_str());
 
 		// delete non-existant object
-		AsyncProgress<bool> progress = ds.unlink("/22333");
-		progress.wait();
-		EXPECT_TRUE(progress.hasError());
+		EXPECT_FALSE(ds.unlink("/22333"));
 
 		uint8_t data1[4096];
 		arc4random_buf(data1, sizeof(data1));
 		
 		MemoryInputStream dataStream(data1, sizeof(data1));
-		progress = ds.put("/22333", dataStream);
-		progress.wait();
-		EXPECT_TRUE(progress.isReady());
-		EXPECT_TRUE(progress.result());
+		EXPECT_NO_THROW(ds.put("/22333", dataStream));
 
-		progress = ds.unlink("/22333");
-		progress.wait();
-		EXPECT_TRUE(progress.isReady());
-		EXPECT_TRUE(progress.result());
+		EXPECT_TRUE(ds.unlink("/22333"));
 	}
 	
 	EXPECT_FALSE(exists(tmpPath));

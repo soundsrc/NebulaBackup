@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "AsyncProgress.h"
+#include "ProgressFunction.h"
 
 namespace Nebula
 {
@@ -30,6 +30,12 @@ namespace Nebula
 	class DataStore
 	{
 	public:
+		
+		/**
+		 * Test if the object exists at the path in the data store.
+		 */
+		virtual bool exist(const char *path, ProgressFunction progress = DefaultProgressFunction) = 0;
+		
 		/**
 		 * Retrives a file from the data store for the given path, and writes
 		 * the result to the output stream
@@ -37,23 +43,23 @@ namespace Nebula
 		 * @param stream Output stream
 		 * @returns False if the object was not found at the path, true otherwise
 		 */
-		virtual AsyncProgress<bool> get(const char *path, OutputStream& stream) = 0;
+		virtual bool get(const char *path, OutputStream& stream, ProgressFunction progress = DefaultProgressFunction) = 0;
 		
 		/**
 		 * Writes a file to the data store given the supplied data stream
 		 */
-		virtual AsyncProgress<bool> put(const char *path, InputStream& stream) = 0;
+		virtual void put(const char *path, InputStream& stream, ProgressFunction progress = DefaultProgressFunction) = 0;
 		
 		/**
 		 * Lists the files at the given path, recursively. The callback is
 		 * invoked for each file listed and invoked with nullptr when no more
 		 * paths are to be listed.
 		 */
-		virtual AsyncProgress<bool> list(const char *path, std::function<void (const char *, void *)> listCallback, void *userData = nullptr) = 0;
+		virtual void list(const char *path, std::function<void (const char *, void *)> listCallback, void *userData = nullptr, ProgressFunction progress = DefaultProgressFunction) = 0;
 		 
 		/**
 		 * Removes a file from the data store.
 		 */
-		virtual AsyncProgress<bool> unlink(const char *path) = 0;
+		virtual bool unlink(const char *path, ProgressFunction progress = DefaultProgressFunction) = 0;
 	};
 }

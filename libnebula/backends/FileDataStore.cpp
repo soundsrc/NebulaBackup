@@ -33,115 +33,106 @@ namespace Nebula
 		mStoreDirectory = storeDirectory;
 	}
 	
-	AsyncProgress<bool> FileDataStore::get(const char *path, OutputStream& stream)
+	bool FileDataStore::exist(const char *path, ProgressFunction progress)
+	{
+		using namespace boost;
+		if(progress) progress(1, 1);
+		
+		filesystem::path fullPath = filesystem::path(mStoreDirectory) / path;
+		return filesystem::exists(fullPath);
+	}
+
+	bool FileDataStore::get(const char *path, OutputStream& stream, ProgressFunction progress)
 	{
 		using namespace boost;
 		
-		std::shared_ptr<AsyncProgressData<bool>> progress = std::make_shared<AsyncProgressData<bool>>();
-		
 		filesystem::path fullPath = filesystem::path(mStoreDirectory) / path;
-		std::async([this, fullPath, &stream, &progress]() -> void {
-			try {
-				
-				FILE *fp = fopen(fullPath.c_str(), "rb");
-				if(!fp) {
-					switch(errno) {
-						case ENOENT:
-							progress->setReady(false);
-							return;
-						default: throw FileIOException(fullPath.string() + ": " + strerror(errno)); break;
-					}
-				}
-				
-				ScopedExit onExit([fp] { fclose(fp); });
-
-				char buffer[4096];
-				ssize_t n;
-				while((n = fread(buffer, 1, sizeof(buffer), fp)) > 0) {
-					if(progress->cancelRequested()) {
-						progress->setCancelled();
-						return;
-					}
-					stream.write(buffer, (size_t)n);
-				}
-
-				if(n == 0 && ferror(fp)) {
-					throw FileIOException(fullPath.string() + ": Read error.");
-				}
-
-				progress->setReady(true);
-			} catch(const std::exception& e) {
-				progress->setError(e.what());
-			}
-		});
 		
-		return AsyncProgress<bool>(progress);
+		FILE *fp = fopen(fullPath.c_str(), "rb");
+		if(!fp) {
+			switch(errno) {
+				case ENOENT: return false;
+				default: throw FileIOException(fullPath.string() + ": " + strerror(errno)); break;
+			}
+		}
+		
+		long fileSize = filesystem::file_size(fullPath);
+		
+		scopedExit([fp] { fclose(fp); });
+
+		progress(0, fileSize);
+
+		char buffer[4096];
+		ssize_t n;
+		long bytesRead = 0;
+		while((n = fread(buffer, 1, sizeof(buffer), fp)) > 0) {
+
+			if(!progress(bytesRead, fileSize)) {
+				throw CancelledException("User cancelled.");
+			}
+
+			bytesRead += n;
+
+			stream.write(buffer, (size_t)n);
+		}
+
+		if(n == 0 && ferror(fp)) {
+			throw FileIOException(fullPath.string() + ": Read error.");
+		}
+
+		progress(fileSize, fileSize);
+
+		return true;
 	}
 	
-	AsyncProgress<bool> FileDataStore::put(const char *path, InputStream& stream)
+	void FileDataStore::put(const char *path, InputStream& stream, ProgressFunction progress)
 	{
 		using namespace boost;
-		
-		std::shared_ptr<AsyncProgressData<bool>> progress = std::make_shared<AsyncProgressData<bool>>();
-		
+
 		filesystem::path fullPath = filesystem::path(mStoreDirectory) / path;
-		std::async([this, fullPath, &stream, &progress]() -> void {
-			try {
-				// do not allow overwrite
-				if(filesystem::exists(fullPath)) {
-					progress->setReady(false);
-					return;
-				}
 
-				if(!filesystem::exists(fullPath.parent_path()))
-				{
-					filesystem::create_directories(fullPath.parent_path());
-				}
-				
-				FILE *fp = fopen(fullPath.c_str(), "wb");
-				if(!fp) {
-					throw FileIOException(fullPath.string() + ": " + strerror(errno));
-				}
-
-				ScopedExit onExit([fp] { if(fp) fclose(fp); });
-
-				size_t n;
-				char buffer[4096];
-				while((n = stream.read(buffer, sizeof(buffer))) > 0) {
-					if(fwrite(buffer, 1, n, fp) < n) {
-						if(ferror(fp)) {
-							throw FileIOException(fullPath.string() + ": Write error.");
-						}
-					}
-					
-					// if cancel has been requested, remove the in progress file
-					if(progress->cancelRequested()) {
-						fclose(fp);
-						fp = nullptr;
-						filesystem::remove(fullPath);
-						progress->setCancelled();
-						return;
-					}
-				}
-				
-				progress->setReady(true);
-			} catch(const std::exception& e) {
-				progress->setError(e.what());
-			}
-		});
+		if(!filesystem::exists(fullPath.parent_path()))
+		{
+			filesystem::create_directories(fullPath.parent_path());
+		}
 		
-		return AsyncProgress<bool>(progress);
+		FILE *fp = fopen(fullPath.c_str(), "wb");
+		if(!fp) {
+			throw FileIOException(fullPath.string() + ": " + strerror(errno));
+		}
+
+		scopedExit([fp] { if(fp) fclose(fp); });
+
+		long fileSize = -1;
+		long bytesRead = 0;
+		size_t n;
+		char buffer[4096];
+		while((n = stream.read(buffer, sizeof(buffer))) > 0) {
+			if(fwrite(buffer, 1, n, fp) < n) {
+				if(ferror(fp)) {
+					throw FileIOException(fullPath.string() + ": Write error.");
+				}
+			}
+			
+			// if cancel has been requested, remove the in progress file
+			if(!progress(bytesRead, fileSize)) {
+				fclose(fp);
+				fp = nullptr;
+				filesystem::remove(fullPath);
+				throw CancelledException("User cancelled.");
+			}
+		}
+
+		progress(fileSize, fileSize);
 	}
 
-	AsyncProgress<bool> FileDataStore::list(const char *path, std::function<void (const char *, void *)> listCallback, void *userData)
+	void FileDataStore::list(const char *path, std::function<void (const char *, void *)> listCallback, void *userData, ProgressFunction progress)
 	{
-		std::shared_ptr<AsyncProgressData<bool>> progress = std::make_shared<AsyncProgressData<bool>>();
-
 		using namespace boost;
 		filesystem::path fullPath = filesystem::path(mStoreDirectory) / path;
 
 		filesystem::recursive_directory_iterator dirIterator(fullPath);
-		
+
 		for(auto& file : dirIterator)
 		{
 			if(!filesystem::is_directory(file))
@@ -152,23 +143,18 @@ namespace Nebula
 		}
 		
 		listCallback(nullptr, userData);
-		
-		progress->setReady(true);
-		return AsyncProgress<bool>(progress);
 	}
 	
-	AsyncProgress<bool> FileDataStore::unlink(const char *path)
+	bool FileDataStore::unlink(const char *path, ProgressFunction progress)
 	{
 		using namespace boost;
 
-		std::shared_ptr<AsyncProgressData<bool>> progress = std::make_shared<AsyncProgressData<bool>>();
 		
 		filesystem::path fullPath = filesystem::path(mStoreDirectory) / path;
 		if(!filesystem::remove(fullPath)) {
-			progress->setError(fullPath.string() + ": Failed to remove object.");
+			return false;
 		} else {
-			progress->setReady(true);
+			return true;
 		}
-		return AsyncProgress<bool>(progress);
 	}
 }

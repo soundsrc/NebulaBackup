@@ -79,7 +79,7 @@ namespace Nebula
 			LzmaAlloc alloc;
 			
 			CLzma2EncHandle enc = Lzma2Enc_Create(&alloc, &alloc);
-			ScopedExit onExit([&enc] { Lzma2Enc_Destroy(enc); });
+			scopedExit([&enc] { Lzma2Enc_Destroy(enc); });
 			
 			CLzma2EncProps props;
 			Lzma2EncProps_Init(&props);

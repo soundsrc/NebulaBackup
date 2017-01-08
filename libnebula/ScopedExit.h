@@ -20,12 +20,47 @@
 
 namespace Nebula
 {
+	template<typename Func>
 	class ScopedExit
 	{
 	public:
-		ScopedExit(std::function<void ()> exitHandler) : mExitHandler(exitHandler) { }
-		~ScopedExit() { mExitHandler(); }
+		ScopedExit(Func&& exitHandler)
+		: mExitHandler(std::move(exitHandler))
+		, mValid(true)
+		{
+		}
+
+		ScopedExit(ScopedExit&& rhs)
+		: mExitHandler(std::move(rhs.mExitHandler))
+		, mValid(true)
+		{
+			rhs.mValid = false;
+		}
+
+		ScopedExit(const ScopedExit&) = delete;
+		ScopedExit& operator =(const ScopedExit&) = delete;
+
+		void release() { mValid = false; }
+
+		inline ~ScopedExit() noexcept(noexcept(mExitHandler())) {
+			if(mValid) {
+				mExitHandler();
+			}
+		}
 	private:
-		std::function<void ()> mExitHandler;
+		Func mExitHandler;
+		bool mValid;
 	};
+	
+	template<typename Func>
+	ScopedExit<Func> makeScopedExit(Func&& f)
+	{
+		return ScopedExit<Func>(std::forward<Func>(f));
+	}
+
+#define SCOPED_EXIT_STR_CAT(x, y) x ## y
+#define SCOPED_EXIT_UNIQUE_VAR(lineNo) SCOPED_EXIT_STR_CAT(__xx_scopedExitVar_, lineNo)
+
+#define scopedExit(lambda) auto SCOPED_EXIT_UNIQUE_VAR(__LINE__) = makeScopedExit(lambda)
+
 }

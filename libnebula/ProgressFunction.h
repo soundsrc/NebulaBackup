@@ -16,30 +16,11 @@
 
 #pragma once
 
-#include <stdexcept>
-#include <string>
+#include <functional>
 
 namespace Nebula
 {
-#define DEFINE_EXCEPTION(Exception) \
-class Exception : public std::runtime_error \
-{ \
-public: \
-	Exception(const std::string& err) : std::runtime_error(err) { } \
-}
+	typedef bool (*ProgressFunction)(long, long);
 	
-	DEFINE_EXCEPTION(FileNotFoundException);
-	DEFINE_EXCEPTION(FileIOException);
-	DEFINE_EXCEPTION(CancelledException);
-	DEFINE_EXCEPTION(DiskQuotaExceededException);
-	DEFINE_EXCEPTION(InvalidArgumentException);
-	DEFINE_EXCEPTION(RepositoryLockedException);
-	DEFINE_EXCEPTION(InvalidRepositoryException);
-	DEFINE_EXCEPTION(InvalidDataException);
-	DEFINE_EXCEPTION(EncryptionFailedException);
-	DEFINE_EXCEPTION(InsufficientBufferSizeException);
-	DEFINE_EXCEPTION(LZMAException);
-	
-#undef DEFINE_EXCEPTION
-
+	inline bool DefaultProgressFunction(long, long) { return true; }
 }

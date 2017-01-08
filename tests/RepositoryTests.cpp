@@ -29,18 +29,16 @@ TEST(RepositoryTests, CreateAndUnlock) {
 	EXPECT_TRUE( create_directory(tmpPath) );
 	
 	{
-		ScopedExit onExit([tmpPath] { remove_all(tmpPath); });
+		scopedExit([tmpPath] { remove_all(tmpPath); });
 
 		FileDataStore ds(tmpPath.c_str());
 		Repository repo(&ds);
 		
-		repo.initializeRepository("randomPassword1234").wait();
-		AsyncProgress<bool> unlockResult = repo.unlockRepository("randomPassword1234");
-		unlockResult.wait();
-		EXPECT_TRUE(unlockResult.result());
-		unlockResult = repo.unlockRepository("randomPassword1234w");
-		unlockResult.wait();
-		EXPECT_FALSE(unlockResult.result());
+		EXPECT_NO_THROW(repo.initializeRepository("randomPassword1234"));
+		EXPECT_TRUE(repo.unlockRepository("randomPassword1234"));
+		EXPECT_FALSE(repo.unlockRepository("randomPassword1234w"));
+		EXPECT_FALSE(repo.unlockRepository("randomPassword123"));
+		EXPECT_FALSE(repo.unlockRepository("randompassword1234"));
 	}
 	
 	EXPECT_FALSE(exists(tmpPath));

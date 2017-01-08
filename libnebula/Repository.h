@@ -18,7 +18,6 @@
 
 #include <vector>
 #include <inttypes.h>
-#include "AsyncProgress.h"
 #include "Snapshot.h"
 
 namespace Nebula
@@ -45,7 +44,7 @@ namespace Nebula
 		 * The files and data structures will be setup using
 		 * the supplied password.
 		 */
-		AsyncProgress<bool> initializeRepository(const char *password, int rounds = 4096);
+		void initializeRepository(const char *password, int rounds = 4096);
 		
 		/**
 		 * Unlocks an existing repository. This should be called before
@@ -53,7 +52,7 @@ namespace Nebula
 		 * Returns true if the supplied password is able to unlock the
 		 * correct.
 		 */
-		AsyncProgress<bool> unlockRepository(const char *password);
+		bool unlockRepository(const char *password);
 
 		/**
 		 * Compacts a repository.
@@ -61,13 +60,13 @@ namespace Nebula
 		 * to enture there is a reference to the object. At the end of the scan,
 		 * objects which have no references are removed.
 		 */
-		AsyncProgress<bool> compactRepository();
+		bool compactRepository();
 		
 		/**
 		 * Initiates a change password operation.
 		 * @param oldPassword
 		 */
-		AsyncProgress<bool> changePassword(const char *oldPassword, const char *newPassword);
+		bool changePassword(const char *oldPassword, const char *newPassword);
 
 		
 		DataStore *dataStore() { return mDataStore; }

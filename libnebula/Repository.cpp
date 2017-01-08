@@ -53,10 +53,8 @@ namespace Nebula
 		free(mRollKey);
 	}
 	
-	AsyncProgress<bool> Repository::initializeRepository(const char *password, int rounds)
+	void Repository::initializeRepository(const char *password, int rounds)
 	{
-		std::shared_ptr<AsyncProgressData<bool>> asyncProgress = std::make_shared<AsyncProgressData<bool>>();
-
 		// derive key from password
 		ZeroedArray<uint8_t, EVP_MAX_MD_SIZE> derivedKey;
 		
@@ -110,108 +108,75 @@ namespace Nebula
 		keyStream.close();
 
 		MemoryInputStream keyStreamResult(keyStream.data(), keyStream.size());
-		AsyncProgress<bool> putProgress = mDataStore->put("/key", keyStreamResult)
-			.onDone([&asyncProgress](bool ready) {
-				asyncProgress->setReady(ready);
-			})
-			.onProgress([&asyncProgress](float progress) {
-				asyncProgress->setProgress(progress);
-			})
-			.onError([&asyncProgress](const std::string& errorMessage) {
-				asyncProgress->setError(errorMessage);
-			})
-			.onCancelled([&asyncProgress] {
-				asyncProgress->setCancelled();
-			});
-
-		return AsyncProgress<bool>(asyncProgress);
+		mDataStore->put("/key", keyStreamResult);
 	}
 	
-	AsyncProgress<bool> Repository::unlockRepository(const char *password)
+	bool Repository::unlockRepository(const char *password)
 	{
-		std::shared_ptr<AsyncProgressData<bool>> asyncProgress = std::make_shared<AsyncProgressData<bool>>();
-
 		uint8_t keyData[1024];
 		MemoryOutputStream keyStream(keyData, sizeof(keyData));
 		
-		AsyncProgress<bool> getProgress = mDataStore->get("/key", keyStream)
-			.onDone([this, &asyncProgress, &keyStream, password](bool ready) {
-				if(ready) {
-					char magic[12];
-					MemoryInputStream stream(keyStream.data(), keyStream.size());
-					stream.read(magic, sizeof(magic));
-					if(strncmp(magic, "NEBULABACKUP", 12) != 0) {
-						asyncProgress->setError("Back up stream is invalid.");
-						return;
-					}
-					uint32_t version = 0;
-					stream.read(&version, sizeof(version));
-					if(version != 0x00010000) {
-						asyncProgress->setError("Invalid version number.");
-						return;
-					}
-					
-					uint32_t algorithm;
-					stream.read(&algorithm, sizeof(algorithm)); // algorithm
-					if(algorithm != 0) {
-						asyncProgress->setError("Invalid algorithm.");
-						return;
-					}
-					
-					uint32_t rounds;
-					stream.read(&rounds, sizeof(rounds));
-					if(rounds > 100000) {
-						asyncProgress->setError("Invalid numebr of rounds.");
-						return;
-					}
-					
-					uint8_t salt[PKCS5_SALT_LEN];
-					stream.read(salt, sizeof(salt));
-					ZeroedArray<uint8_t, EVP_MAX_KEY_LENGTH> derivedKey;
-					if(!PKCS5_PBKDF2_HMAC(password, strlen(password), salt, sizeof(salt), rounds, EVP_sha512(), derivedKey.size(), derivedKey.data())) {
-						asyncProgress->setError("Failed to unlock using password.");
-						return;
-					}
+		if(!mDataStore->get("/key", keyStream)) {
+			throw InvalidDataException("Repository does not exist at this path.");
+		}
 
-					uint8_t encKeyData[EVP_MAX_KEY_LENGTH * 4 + EVP_MAX_BLOCK_LENGTH];
-					uint8_t hmac1[EVP_MAX_MD_SIZE];
-					uint8_t hmac2[EVP_MAX_MD_SIZE];
-					stream.read(encKeyData, sizeof(encKeyData));
-					stream.read(hmac1, sizeof(hmac1));
-					unsigned int hmacKeyLen = sizeof(hmac2);
-					
-					if(!HMAC(EVP_sha256(), derivedKey.data(), derivedKey.size(), encKeyData, sizeof(encKeyData), hmac2, &hmacKeyLen)) {
-						asyncProgress->setError("Failed to unlock using password. HMAC failure.");
-						return;
-					}
+		char magic[12];
+		MemoryInputStream stream(keyStream.data(), keyStream.size());
+		stream.read(magic, sizeof(magic));
+		if(strncmp(magic, "NEBULABACKUP", 12) != 0) {
+			throw InvalidDataException("Back up stream is invalid.");
+		}
 
-					// password failure
-					if(memcmp(hmac1, hmac2, hmacKeyLen) != 0) {
-						asyncProgress->setReady(false);
-						return;
-					}
-
-					MemoryInputStream encKeyStream(encKeyData, sizeof(encKeyData));
-
-					DecryptedInputStream decStream(encKeyStream, EVP_aes_256_cbc(), derivedKey.data());
-					decStream.read(mEncKey, EVP_MAX_KEY_LENGTH);
-					decStream.read(mMacKey, EVP_MAX_KEY_LENGTH);
-					decStream.read(mHashKey, EVP_MAX_KEY_LENGTH);
-					decStream.read(mRollKey, EVP_MAX_KEY_LENGTH);
-				}
-				asyncProgress->setReady(ready);
-			})
-			.onProgress([&asyncProgress](float progress) {
-				asyncProgress->setProgress(progress);
-			})
-			.onError([&asyncProgress](const std::string& errorMessage) {
-				asyncProgress->setError(errorMessage);
-			})
-			.onCancelled([&asyncProgress] {
-				asyncProgress->setCancelled();
-			});
-		getProgress.wait();
+		uint32_t version = 0;
+		stream.read(&version, sizeof(version));
+		if(version != 0x00010000) {
+			throw InvalidDataException("Invalid version number.");	
+		}
 		
-		return AsyncProgress<bool>(asyncProgress);
+		uint32_t algorithm;
+		stream.read(&algorithm, sizeof(algorithm)); // algorithm
+		if(algorithm != 0) {
+			throw InvalidDataException("Invalid algorithm.");
+			
+		}
+		
+		uint32_t rounds;
+		stream.read(&rounds, sizeof(rounds));
+		if(rounds > 100000) {
+			throw InvalidDataException("Invalid number of rounds.");
+		}
+		
+		uint8_t salt[PKCS5_SALT_LEN];
+		stream.read(salt, sizeof(salt));
+		ZeroedArray<uint8_t, EVP_MAX_KEY_LENGTH> derivedKey;
+		if(!PKCS5_PBKDF2_HMAC(password, strlen(password), salt, sizeof(salt), rounds, EVP_sha512(), derivedKey.size(), derivedKey.data())) {
+			throw EncryptionFailedException("Failed to derive key from password.");
+		}
+
+		uint8_t encKeyData[EVP_MAX_KEY_LENGTH * 4 + EVP_MAX_BLOCK_LENGTH];
+		uint8_t hmac1[EVP_MAX_MD_SIZE];
+		uint8_t hmac2[EVP_MAX_MD_SIZE];
+		stream.read(encKeyData, sizeof(encKeyData));
+		stream.read(hmac1, sizeof(hmac1));
+		unsigned int hmacKeyLen = sizeof(hmac2);
+		
+		if(!HMAC(EVP_sha256(), derivedKey.data(), derivedKey.size(), encKeyData, sizeof(encKeyData), hmac2, &hmacKeyLen)) {
+			throw EncryptionFailedException("Failed to unlock using password. HMAC failure.");
+		}
+
+		// password failure
+		if(memcmp(hmac1, hmac2, hmacKeyLen) != 0) {
+			return false;
+		}
+
+		MemoryInputStream encKeyStream(encKeyData, sizeof(encKeyData));
+
+		DecryptedInputStream decStream(encKeyStream, EVP_aes_256_cbc(), derivedKey.data());
+		decStream.read(mEncKey, EVP_MAX_KEY_LENGTH);
+		decStream.read(mMacKey, EVP_MAX_KEY_LENGTH);
+		decStream.read(mHashKey, EVP_MAX_KEY_LENGTH);
+		decStream.read(mRollKey, EVP_MAX_KEY_LENGTH);
+
+		return true;
 	}
 }

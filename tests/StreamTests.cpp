@@ -137,7 +137,7 @@ TEST(StreamTests, FileStreamReadWrite)
 		size_t bufferSize = 1 + (rand() % 1024);
 
 		FileStream fp(tmpPath.c_str(), FileMode::Write);
-		ScopedExit onExit([tmpPath] { filesystem::remove(tmpPath); });
+		scopedExit([tmpPath] { filesystem::remove(tmpPath); });
 		testReadWriteStream(fp, size,
 							[tmpPath]() -> InputStream * {
 								return new FileStream(tmpPath.c_str(), FileMode::Read);

@@ -18,6 +18,7 @@
 
 #include <string>
 #include "libnebula/DataStore.h"
+#include "libnebula/ProgressFunction.h"
 
 namespace Nebula
 {
@@ -26,10 +27,11 @@ namespace Nebula
 	public:
 		FileDataStore(const char *storeDirectory);
 
-		virtual AsyncProgress<bool> get(const char *path, OutputStream& stream) override;
-		virtual AsyncProgress<bool> put(const char *path, InputStream& stream) override;
-		virtual AsyncProgress<bool> list(const char *path, std::function<void (const char *, void *)> listCallback, void *userData) override;
-		virtual AsyncProgress<bool> unlink(const char *path) override;
+		virtual bool exist(const char *path, ProgressFunction progress = DefaultProgressFunction) override;
+		virtual bool get(const char *path, OutputStream& stream, ProgressFunction progress = DefaultProgressFunction) override;
+		virtual void put(const char *path, InputStream& stream, ProgressFunction progress = DefaultProgressFunction) override;
+		virtual void list(const char *path, std::function<void (const char *, void *)> listCallback, void *userData, ProgressFunction progress = DefaultProgressFunction) override;
+		virtual bool unlink(const char *path, ProgressFunction progress = DefaultProgressFunction) override;
 	private:
 		std::string mStoreDirectory;
 	};
