@@ -79,9 +79,9 @@ namespace Nebula
 
 		struct FileEntry
 		{
-			int path; // pathname to the file
-			int user; // unix user id
-			int group; // unix group name
+			int pathIndex; // pathname to the file
+			int userIndex; // unix user id
+			int groupIndex; // unix group name
 			uint16_t mode; // mode
 			uint64_t size; // size of file in bytes
 			time_t mtime; // modify time
@@ -89,7 +89,7 @@ namespace Nebula
 			uint8_t blockSizeLog;
 			uint16_t numBlocks;
 			uint8_t sha256[32];
-			BlockHash *blockList;
+			int blockIndex;
 		};
 		
 		class StringComparer
@@ -106,7 +106,7 @@ namespace Nebula
 			explicit FileEntryComparer(const std::vector<char, ZeroedAllocator<char>>& stringTable) : mStringTable(stringTable) { }
 			
 			bool operator ()(const FileEntry& a, const FileEntry& b) {
-				return strcmp(&mStringTable[a.path], &mStringTable[b.path]) < 0;
+				return strcmp(&mStringTable[a.pathIndex], &mStringTable[b.pathIndex]) < 0;
 			}
 		private:
 			const std::vector<char, ZeroedAllocator<char>>& mStringTable;

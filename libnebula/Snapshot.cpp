@@ -131,7 +131,7 @@ namespace Nebula
 		
 		FileInfo fileInfo( fileStream.path().c_str() );
 		if(!fileInfo.exists()) {
-			throw FileNotFoundException("File not found");
+			throw FileNotFoundException("File not found.");
 		}
 
 		fileEntry.size = fileInfo.length();
@@ -139,8 +139,8 @@ namespace Nebula
 		fileEntry.type = (int)fileInfo.type();
 		fileEntry.numBlocks = 0;
 		
-		std::vector<BlockHash> blockHash;
-		blockHash.reserve(32);
+		std::vector<BlockHash> blockHashes;
+		blockHashes.reserve(32);
 		
 		SHA256_CTX sha256;
 		SHA256_Init(&sha256);
@@ -157,8 +157,11 @@ namespace Nebula
 			
 			SHA256_Update(&sha256, buffer.get(), fileEntry.size);
 
-			uploadBlock(buffer.get(), fileEntry.size, nullptr, progress);
-			++fileEntry.numBlocks;
+			BlockHash blockHash;
+			blockHash.size = fileEntry.size;
+			uploadBlock(buffer.get(), fileEntry.size, blockHash.hmac256, progress);
+			blockHashes.push_back(blockHash);
+
 		} else {
 
 			// the block size is dynamically determined based on file length
@@ -179,9 +182,12 @@ namespace Nebula
 				if((rh.roll(b) & hashMask) == 0) {
 					
 					SHA256_Update(&sha256, &blockBuffer[0], blockBuffer.size());
+					
+					BlockHash blockHash;
+					blockHash.size = blockBuffer.size();
 					// upload block
-					uploadBlock(&blockBuffer[0], blockBuffer.size(), nullptr, progress);
-					++fileEntry.numBlocks;
+					uploadBlock(&blockBuffer[0], blockBuffer.size(), blockHash.hmac256, progress);
+					blockHashes.push_back(blockHash);
 					blockBuffer.clear();
 				}
 			}
@@ -199,10 +205,13 @@ namespace Nebula
 		// update the index
 		std::lock_guard<std::mutex> lock(mMutex);
 
-		fileEntry.path = insertStringTable(path);
-		fileEntry.user = insertStringTable(fileInfo.userName().c_str());
-		fileEntry.group = insertStringTable(fileInfo.groupName().c_str());
-		
+		fileEntry.pathIndex = insertStringTable(path);
+		fileEntry.userIndex = insertStringTable(fileInfo.userName().c_str());
+		fileEntry.groupIndex = insertStringTable(fileInfo.groupName().c_str());
+		fileEntry.numBlocks = blockHashes.size();
+		fileEntry.blockIndex = mBlockHashes.size();
+		std::copy(blockHashes.begin(), blockHashes.end(), std::back_inserter(mBlockHashes));
+
 		mFiles.insert(fileEntry);
 	}
 	
