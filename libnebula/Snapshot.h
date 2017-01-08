@@ -20,7 +20,7 @@
 #include <set>
 #include <vector>
 #include <stdint.h>
-#include "AsyncProgress.h"
+#include "ProgressFunction.h"
 #include "ZeroedString.h"
 #include "ZeroedAllocator.h"
 
@@ -46,24 +46,24 @@ namespace Nebula
 		 * A file maybe uploaded to the backup, however, it won't have an
 		 * reference until commit() is called.
 		 */
-		AsyncProgress<bool> uploadFile(const char *path, FileStream& fileStream);
+		void uploadFile(const char *path, FileStream& fileStream, ProgressFunction progress = DefaultProgressFunction);
 		
 		/**
 		 * Download a file.
 		 */
-		AsyncProgress<bool> downloadFile(const char *path, OutputStream& outputStream);
+		void downloadFile(const char *path, OutputStream& outputStream, ProgressFunction progress = DefaultProgressFunction);
 
 		/**
 		 * Loads an existing snapshot from the repo.
 		 */
-		AsyncProgress<bool> load(const char *name);
+		void load(const char *name);
 
 		/**
 		 * A snapshot is not complete until we commit the snapshot data.
 		 * The snapshot is
 		 * @param name Snapshot name, which should be unique from other snapshots.
 		 */
-		AsyncProgress<bool> commit(const char *name);
+		void commit(const char *name);
 	private:
 		Repository& mRepository;
 		std::string mName;
@@ -123,6 +123,6 @@ namespace Nebula
 		int hexToNibble(char h) const;
 		std::string hmac256ToString(uint8_t *hmac) const;
 		void hmac256strToHmac(const char *str, uint8_t *outHmac);
-		AsyncProgress<bool> uploadBlock(const uint8_t *block, size_t size);
+		void uploadBlock(const uint8_t *block, size_t size, ProgressFunction progress = DefaultProgressFunction);
 	};
 }

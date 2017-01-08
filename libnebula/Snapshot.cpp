@@ -20,6 +20,7 @@
 #include <openssl/hmac.h>
 #include <openssl/sha.h>
 #include "Exception.h"
+#include "DataStore.h"
 #include "BufferedInputStream.h"
 #include "MemoryInputStream.h"
 #include "MemoryOutputStream.h"
@@ -85,10 +86,8 @@ namespace Nebula
 		}
 	};
 
-	AsyncProgress<bool> Snapshot::uploadBlock(const uint8_t *block, size_t size)
+	void Snapshot::uploadBlock(const uint8_t *block, size_t size, ProgressFunction progress)
 	{
-		auto progress = std::shared_ptr<AsyncProgressData<bool>>();
-		
 		uint8_t filemac[SHA256_DIGEST_LENGTH];
 		if(!HMAC(EVP_sha256(), mRepository.hashKey(), SHA256_DIGEST_LENGTH, block, size, filemac, nullptr)) {
 			throw EncryptionFailedException("Failed to HMAC block.");
@@ -102,21 +101,19 @@ namespace Nebula
 		MemoryOutputStream compressedStream(compressData.get(), size * 2);
 		LZMAUtils::compress(blockStream, compressedStream, nullptr);
 		compressedStream.close();
+
+		std::unique_ptr<uint8_t, MallocDeletor>
+			encryptedData( (uint8_t *)malloc(compressedStream.size() + EVP_MAX_BLOCK_LENGTH) );
+		MemoryInputStream encInStream(compressedStream.data(), compressedStream.size());
+		MemoryOutputStream encOutStream(encryptedData.get(), compressedStream.size() + EVP_MAX_BLOCK_LENGTH);
+		encInStream.copyTo(encOutStream);
+		encOutStream.close();
 		
-		{
-			std::unique_ptr<uint8_t, MallocDeletor>
-				encryptedData( (uint8_t *)malloc(compressedStream.size() + EVP_MAX_BLOCK_LENGTH) );
-			MemoryInputStream encInStream(compressedStream.data(), compressedStream.size());
-			MemoryOutputStream encOutStream(encryptedData.get(), compressedStream.size() + EVP_MAX_BLOCK_LENGTH);
-			encInStream.copyTo(encOutStream);
-		}
-		
-//		mRepository.dataStore()->put("/data/" + hmac256ToString(filemac))
-		
-		return AsyncProgress<bool>(progress);
+		MemoryInputStream uploadStream(encOutStream.data(), encOutStream.size());
+		mRepository.dataStore()->put(("/data/" + hmac256ToString(filemac)).c_str(), uploadStream);
 	}
 
-	AsyncProgress<bool> Snapshot::uploadFile(const char *path, FileStream& fileStream)
+	void Snapshot::uploadFile(const char *path, FileStream& fileStream, ProgressFunction progress)
 	{
 		using namespace boost;
 
@@ -127,35 +124,37 @@ namespace Nebula
 		// don't bother with splitting the file if it's < 1MB
 		// just upload as is
 		if(fileSize < 1024 * 1024) {
-			
+
 			std::unique_ptr<uint8_t, MallocDeletor>
 				buffer( (uint8_t *)malloc(fileSize) );
 			if(fileStream.read(buffer.get(), fileSize) != fileSize) {
 				throw FileIOException("Failed to read file.");
 			}
 
-			return uploadBlock(buffer.get(), fileSize);
-		}
-	
+			uploadBlock(buffer.get(), fileSize, progress);
+		} else {
 
+			// determine how to split
+			uint32_t blockSizeLog = ceil(log(fileSize / 8) / log(2));
+			if(blockSizeLog < 16) blockSizeLog = 16;
+			uint32_t hashMask = (1 << blockSizeLog) - 1;
 
-		// determine how to split
-		uint32_t blockSizeLog = ceil(log(fileSize / 8) / log(2));
-		if(blockSizeLog < 16) blockSizeLog = 16;
-		uint32_t hashMask = (1 << blockSizeLog) - 1;
-
-		std::vector<uint8_t> blockBuffer;
-		blockBuffer.reserve(1 << (1 + blockSizeLog));
-		
-		BufferedInputStream bufferedFile(fileStream);
-		while(!bufferedFile.isEof()) {
-			uint8_t b = bufferedFile.readByte();
-			if((rh.roll(b) & hashMask) == 0) {
+			std::vector<uint8_t> blockBuffer;
+			blockBuffer.reserve(1 << (1 + blockSizeLog));
+			
+			BufferedInputStream bufferedFile(fileStream);
+			while(!bufferedFile.isEof()) {
+				uint8_t b = bufferedFile.readByte();
 				blockBuffer.push_back(b);
-				
-				// upload block
-				uploadBlock(&blockBuffer[0], blockBuffer.size());
-				blockBuffer.clear();
+				if((rh.roll(b) & hashMask) == 0) {
+					// upload block
+					uploadBlock(&blockBuffer[0], blockBuffer.size(), progress);
+					blockBuffer.clear();
+				}
+			}
+
+			if(!blockBuffer.empty()) {
+				uploadBlock(&blockBuffer[0], blockBuffer.size(), progress);
 			}
 		}
 	}
