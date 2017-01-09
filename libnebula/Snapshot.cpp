@@ -113,7 +113,9 @@ namespace Nebula
 		mStringBuffer.resize((mStringBuffer.size() + n + 3) & ~3);
 		strncpy(&mStringBuffer[idx], str, n);
 
-		return n;
+		mStringTable[str] = idx;
+
+		return idx;
 	}
 	
 	int Snapshot::addBlockHashes(const BlockHash *blockHashes, int count)
