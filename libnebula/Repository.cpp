@@ -226,16 +226,17 @@ namespace Nebula
 		size_t maxEncryptedLength = EVP_MAX_IV_LENGTH + compressedStream.size() + EVP_MAX_BLOCK_LENGTH;
 		std::unique_ptr<uint8_t, MallocDeletor> encryptedData( (uint8_t *)malloc(SHA256_DIGEST_LENGTH + maxEncryptedLength) );
 		MemoryInputStream encInStream(compressedStream.data(), compressedStream.size());
-		MemoryOutputStream encOutStream(encryptedData.get() + SHA256_DIGEST_LENGTH, maxEncryptedLength);
+		MemoryOutputStream encOutStreamMem(encryptedData.get() + SHA256_DIGEST_LENGTH, maxEncryptedLength);
+		EncryptedOutputStream encOutStream(encOutStreamMem, EVP_aes_256_cbc(), mEncKey);
 		encInStream.copyTo(encOutStream);
 		encOutStream.close();
 
-		if(!HMAC(EVP_sha256(), mMacKey, SHA256_DIGEST_LENGTH, encOutStream.data(), encOutStream.size(), encryptedData.get(), nullptr)) {
+		if(!HMAC(EVP_sha256(), mMacKey, SHA256_DIGEST_LENGTH, encOutStreamMem.data(), encOutStreamMem.size(), encryptedData.get(), nullptr)) {
 			throw EncryptionFailedException("Failed to HMAC encrypted block.");
 		}
 		
-		MemoryInputStream uploadStream(encryptedData.get(), SHA256_DIGEST_LENGTH + encOutStream.size());
-		mDataStore->put(("/data/" + hmac256ToString(outhmac)).c_str(), uploadStream);
+		MemoryInputStream uploadStream(encryptedData.get(), SHA256_DIGEST_LENGTH + encOutStreamMem.size());
+		mDataStore->put(uploadPath.c_str(), uploadStream);
 	}
 
 	void Repository::uploadFile(Snapshot *snapshot, const char *destPath, FileStream& fileStream, ProgressFunction progress)
