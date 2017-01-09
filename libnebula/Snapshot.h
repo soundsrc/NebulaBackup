@@ -18,7 +18,6 @@
 
 #include <mutex>
 #include <string>
-#include <set>
 #include <map>
 #include <vector>
 #include <stdint.h>
@@ -46,25 +45,9 @@ namespace Nebula
 
 		struct BlockHash
 		{
-			int size;
-			uint8_t hmac256[32];
+			uint8_t hmac256[SHA256_DIGEST_LENGTH];
 		};
-
-		void addFileEntry(const char *path,
-						  const char *user,
-						  const char *group,
-						  FileType type,
-						  uint16_t mode,
-						  uint64_t size,
-						  time_t mtime,
-						  uint8_t blockSizeLog,
-						  const uint8_t *sha256,
-						  int numBlocks,
-						  const BlockHash *blockHashes);
-	
-		//void listFileEntries();
-		//void deleteFileEntry(const char *path);
-	private:
+		
 		struct FileEntry
 		{
 			int pathIndex; // pathname to the file
@@ -79,7 +62,29 @@ namespace Nebula
 			uint8_t sha256[SHA256_DIGEST_LENGTH];
 			int blockIndex;
 		};
+
+		void addFileEntry(const char *path,
+						  const char *user,
+						  const char *group,
+						  FileType type,
+						  uint16_t mode,
+						  uint64_t size,
+						  time_t mtime,
+						  uint8_t blockSizeLog,
+						  const uint8_t *sha256,
+						  int numBlocks,
+						  const BlockHash *blockHashes);
 		
+		const FileEntry *getFileEntry(const char *path);
+	
+		//void listFileEntries();
+		//void deleteFileEntry(const char *path);
+		
+		
+		const char *indexToString(int n) const { return (const char *)&mStringBuffer[n]; }
+		const BlockHash *indexToBlockHash(int n) const { return &mBlockHashes[n]; }
+	private:
+
 		class StringComparer
 		{
 		public:
@@ -87,26 +92,13 @@ namespace Nebula
 				return strcmp(a, b) < 0;
 			}
 		};
-		
-		class FileEntryComparer
-		{
-		public:
-			explicit FileEntryComparer(const std::vector<char, ZeroedAllocator<char>>& stringTable) : mStringTable(stringTable) { }
-			
-			bool operator ()(const FileEntry& a, const FileEntry& b) {
-				return strcmp(&mStringTable[a.pathIndex], &mStringTable[b.pathIndex]) < 0;
-			}
-		private:
-			const std::vector<char, ZeroedAllocator<char>>& mStringTable;
-		};
-	
 
 		//
 		std::map<const char *, int, StringComparer> mStringTable;
 		std::vector<char, ZeroedAllocator<char>> mStringBuffer;
 		std::vector<BlockHash, ZeroedAllocator<BlockHash>> mBlockHashes;
-		std::set<FileEntry, FileEntryComparer, ZeroedAllocator<FileEntry>> mFiles;
-		
+		std::map<std::string, FileEntry, std::less<std::string>, ZeroedAllocator<FileEntry>> mFiles;
+
 		std::mutex mMutex;
 	
 		int insertStringTable(const char *str);

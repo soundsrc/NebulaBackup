@@ -37,7 +37,6 @@
 namespace Nebula
 {
 	Snapshot::Snapshot()
-	: mFiles(FileEntryComparer(mStringBuffer), ZeroedAllocator<FileEntry>())
 	{
 	}
 	
@@ -71,7 +70,19 @@ namespace Nebula
 		memcpy(fe.sha256, sha256, SHA256_DIGEST_LENGTH);
 		fe.numBlocks = numBlocks;
 		fe.blockIndex = addBlockHashes(blockHashes, numBlocks);
-		mFiles.insert(fe);
+		mFiles.insert(std::make_pair(path, fe));
+	}
+	
+	const Snapshot::FileEntry *Snapshot::getFileEntry(const char *path)
+	{
+		std::lock_guard<std::mutex> lock(mMutex);
+		
+		auto f = mFiles.find(path);
+		if(f == mFiles.end()) {
+			return nullptr;
+		}
+		
+		return &f->second;
 	}
 	
 	int Snapshot::insertStringTable(const char *str)
