@@ -51,6 +51,7 @@ TEST(RollingHashTests, Roll) {
 	ASSERT_EQ(hash1, hash2);
 }
 
+#if 0
 TEST(RollingHashTests, Distribution)
 {
 	using namespace Nebula;
@@ -71,3 +72,4 @@ TEST(RollingHashTests, Distribution)
 	}
 	printf("Average rolling size: %llu bytes\n", sum / 100);
 }
+#endif
