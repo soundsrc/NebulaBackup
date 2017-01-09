@@ -221,13 +221,18 @@ namespace Nebula
 		LZMAUtils::compress(blockStream, compressedStream, nullptr);
 		compressedStream.close();
 		
-		std::unique_ptr<uint8_t, MallocDeletor> encryptedData( (uint8_t *)malloc(compressedStream.size() + EVP_MAX_BLOCK_LENGTH) );
+		size_t maxEncryptedLength = EVP_MAX_IV_LENGTH + compressedStream.size() + EVP_MAX_BLOCK_LENGTH;
+		std::unique_ptr<uint8_t, MallocDeletor> encryptedData( (uint8_t *)malloc(SHA256_DIGEST_LENGTH + maxEncryptedLength) );
 		MemoryInputStream encInStream(compressedStream.data(), compressedStream.size());
-		MemoryOutputStream encOutStream(encryptedData.get(), compressedStream.size() + EVP_MAX_BLOCK_LENGTH);
+		MemoryOutputStream encOutStream(encryptedData.get() + SHA256_DIGEST_LENGTH, maxEncryptedLength);
 		encInStream.copyTo(encOutStream);
 		encOutStream.close();
+
+		if(!HMAC(EVP_sha256(), mMacKey, SHA256_DIGEST_LENGTH, encOutStream.data(), encOutStream.size(), encryptedData.get(), nullptr)) {
+			throw EncryptionFailedException("Failed to HMAC encrypted block.");
+		}
 		
-		MemoryInputStream uploadStream(encOutStream.data(), encOutStream.size());
+		MemoryInputStream uploadStream(encryptedData.get(), SHA256_DIGEST_LENGTH + encOutStream.size());
 		mDataStore->put(("/data/" + hmac256ToString(outhmac)).c_str(), uploadStream);
 	}
 
