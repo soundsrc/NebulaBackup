@@ -13,7 +13,10 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+#include <string>
 #include <stdlib.h>
+#include <math.h>
+#include <boost/filesystem.hpp>
 #include <openssl/evp.h>
 #include <openssl/sha.h>
 #include <openssl/hmac.h>
@@ -21,13 +24,18 @@ extern "C" {
 #include "compat/stdlib.h"
 #include "compat/string.h"
 }
+#include "FileInfo.h"
+#include "RollingHash.h"
 #include "EncryptedOutputStream.h"
 #include "DecryptedInputStream.h"
 #include "ZeroedArray.h"
 #include "Exception.h"
 #include "DataStore.h"
+#include "BufferedInputStream.h"
+#include "FileStream.h"
 #include "MemoryOutputStream.h"
 #include "MemoryInputStream.h"
+#include "LZMAUtils.h"
 #include "Repository.h"
 
 namespace Nebula
@@ -52,6 +60,13 @@ namespace Nebula
 		free(mHashKey);
 		free(mRollKey);
 	}
+	
+	struct Repository::MallocDeletor
+	{
+		inline void operator ()(uint8_t *p) {
+			free(p);
+		}
+	};
 	
 	void Repository::initializeRepository(const char *password, int rounds)
 	{
@@ -178,5 +193,158 @@ namespace Nebula
 		decStream.read(mRollKey, EVP_MAX_KEY_LENGTH);
 
 		return true;
+	}
+	
+	
+	Snapshot *Repository::createSnapshot()
+	{
+		return new Snapshot();
+	}
+	
+	void Repository::uploadBlock(const uint8_t *block, size_t size, uint8_t *outhmac, ProgressFunction progress)
+	{
+		if(!HMAC(EVP_sha256(), mHashKey, SHA256_DIGEST_LENGTH, block, size, outhmac, nullptr)) {
+			throw EncryptionFailedException("Failed to HMAC block.");
+		}
+		
+		// if the block already exists in the repository, skip the upload
+		std::string uploadPath = "/data/" + hmac256ToString(outhmac);
+		if(mDataStore->exist(uploadPath.c_str())) {
+			return;
+		}
+		
+		MemoryInputStream blockStream(block, size);
+		
+		std::unique_ptr<uint8_t, MallocDeletor> compressData( (uint8_t *)malloc(size * 2) );
+		
+		MemoryOutputStream compressedStream(compressData.get(), size * 2);
+		LZMAUtils::compress(blockStream, compressedStream, nullptr);
+		compressedStream.close();
+		
+		std::unique_ptr<uint8_t, MallocDeletor> encryptedData( (uint8_t *)malloc(compressedStream.size() + EVP_MAX_BLOCK_LENGTH) );
+		MemoryInputStream encInStream(compressedStream.data(), compressedStream.size());
+		MemoryOutputStream encOutStream(encryptedData.get(), compressedStream.size() + EVP_MAX_BLOCK_LENGTH);
+		encInStream.copyTo(encOutStream);
+		encOutStream.close();
+		
+		MemoryInputStream uploadStream(encOutStream.data(), encOutStream.size());
+		mDataStore->put(("/data/" + hmac256ToString(outhmac)).c_str(), uploadStream);
+	}
+
+	void Repository::uploadFile(Snapshot *snapshot, const char *destPath, FileStream& fileStream, ProgressFunction progress)
+	{
+		using namespace boost;
+		
+		RollingHash rh(mRollKey, 8192);
+		uint8_t fileSHA256[SHA256_DIGEST_LENGTH];
+	
+		FileInfo fileInfo( fileStream.path().c_str() );
+		if(!fileInfo.exists()) {
+			throw FileNotFoundException("File not found.");
+		}
+
+		std::vector<Snapshot::BlockHash> blockHashes;
+		blockHashes.reserve(32);
+		
+		SHA256_CTX sha256;
+		SHA256_Init(&sha256);
+		
+		size_t fileLength = fileInfo.length();
+		int blockSizeLog = 0;
+
+		// don't bother with splitting the file if it's < 1MB
+		// just upload as is
+		if(fileLength < 1024 * 1024) {
+			
+			std::unique_ptr<uint8_t, MallocDeletor> buffer( (uint8_t *)malloc(fileLength) );
+
+			if(fileStream.read(buffer.get(), fileLength) != fileLength) {
+				throw FileIOException("Failed to read file.");
+			}
+			
+			SHA256_Update(&sha256, buffer.get(), fileLength);
+			
+			Snapshot::BlockHash blockHash;
+			blockHash.size = fileLength;
+			uploadBlock(buffer.get(), fileLength, blockHash.hmac256, progress);
+			blockHashes.push_back(blockHash);
+			
+		} else {
+			
+			// the block size is dynamically determined based on file length
+			// and increases bigger for larger file sizes
+			// TODO: make these values configurable
+			blockSizeLog = ceil(log(fileLength / 8) / log(2));
+			if(blockSizeLog  < 16) blockSizeLog  = 16;
+			if(blockSizeLog  > 25) blockSizeLog  = 25;
+			uint32_t hashMask = (1 << blockSizeLog) - 1;
+			
+			std::vector<uint8_t> blockBuffer;
+			blockBuffer.reserve(1 << (1 + blockSizeLog));
+			
+			BufferedInputStream bufferedFile(fileStream);
+			while(!bufferedFile.isEof()) {
+				uint8_t b = bufferedFile.readByte();
+				blockBuffer.push_back(b);
+				if((rh.roll(b) & hashMask) == 0) {
+					
+					SHA256_Update(&sha256, &blockBuffer[0], blockBuffer.size());
+					
+					Snapshot::BlockHash blockHash;
+					blockHash.size = blockBuffer.size();
+					// upload block
+					uploadBlock(&blockBuffer[0], blockBuffer.size(), blockHash.hmac256, progress);
+					blockHashes.push_back(blockHash);
+					blockBuffer.clear();
+				}
+			}
+			
+			if(!blockBuffer.empty()) {
+				SHA256_Update(&sha256, &blockBuffer[0], blockBuffer.size());
+				uploadBlock(&blockBuffer[0], blockBuffer.size(), nullptr, progress);
+			}
+		}
+		
+		// write the SHA256
+		SHA256_Final(fileSHA256, &sha256);
+		
+		// update the index
+		
+	}
+
+	char Repository::nibbleToHex(uint8_t nb) const
+	{
+		if(nb >= 0 && nb <= 9) return '0' + nb;
+		if(nb < 16) {
+			return 'a' + (nb - 10);
+		}
+		return 0;
+	}
+	
+	int Repository::hexToNibble(char h) const
+	{
+		char lh = tolower(h);
+		if(lh >= '0' && lh <= '9') return lh - '0';
+		if(lh >= 'a' && lh <= 'a') return lh - 'a' + 10;
+		return 0;
+	}
+	
+	std::string Repository::hmac256ToString(uint8_t *hmac) const
+	{
+		std::string hmacStr;
+		hmacStr.reserve(64);
+		for(int i = 0; i < SHA256_DIGEST_LENGTH; ++i) {
+			hmacStr += nibbleToHex(hmac[i] >> 4);
+			hmacStr += nibbleToHex(hmac[i] & 0xF);
+		}
+		
+		return hmacStr;
+	}
+	
+	void Repository::hmac256strToHmac(const char *str, uint8_t *outHmac)
+	{
+		for(int i = 0; i < SHA256_DIGEST_LENGTH * 2; i += 2) {
+			outHmac[i >> 1] = hexToNibble(str[i]) << 4 | hexToNibble(str[i]);
+		}
 	}
 }

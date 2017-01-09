@@ -17,7 +17,9 @@
 #pragma once
 
 #include <vector>
+#include <functional>
 #include <inttypes.h>
+#include "ProgressFunction.h"
 #include "Snapshot.h"
 
 namespace Nebula
@@ -28,6 +30,7 @@ namespace Nebula
 	 * Represents a backup repository. The repository is backed by a data store
 	 * backend (i.e. SSH, S3, etc..).
 	 */
+	class FileInputStream;
 	class Repository
 	{
 	public:
@@ -57,7 +60,7 @@ namespace Nebula
 		/**
 		 * Compacts a repository.
 		 * The repository is scanned for snapshots and each object is checked
-		 * to enture there is a reference to the object. At the end of the scan,
+		 * to ensure there is a reference to the object. At the end of the scan,
 		 * objects which have no references are removed.
 		 */
 		bool compactRepository();
@@ -68,17 +71,50 @@ namespace Nebula
 		 */
 		bool changePassword(const char *oldPassword, const char *newPassword);
 
+		/**
+		 * Creates a new snapshot. A snapshot is a collection of file.
+		 */
+		Snapshot *createSnapshot();
 		
-		DataStore *dataStore() { return mDataStore; }
-		const uint8_t *encKey() const { return mEncKey; }
-		const uint8_t *macKey() const { return mMacKey; }
-		const uint8_t *hashKey() const { return mHashKey; }
-		const uint8_t *rollKey() const { return mRollKey; }
+		/**
+		 * Creates a snapshot based on an existing snapshot.
+		 * Useful for making incremental backups.
+		 */
+		Snapshot *loadSnapshot(const char *name, ProgressFunction progress = DefaultProgressFunction);
+		
+		/**
+		 * Lists the files in the snapshot.
+		 * The callback function is invoked for each file.
+		 */
+		void listFiles(Snapshot *snapshot, const std::function<void (const char *, void *)>& listCallback, void *userData = nullptr, ProgressFunction progress = DefaultProgressFunction);
+		
+		/**
+		 * Uploads a file to the repository. Adds the entry to the snapshot.
+		 * Until a snapshot is committed, it is loose file which may be
+		 * compacted via the compactRepository() method.
+		 */
+		void uploadFile(Snapshot *snapshot, const char *destPath, FileStream& fileStream, ProgressFunction progress = DefaultProgressFunction);
+		
+		
+		/**
+		 * Commits the snapshot to the repository.
+		 */
+		void commitSnapshot(Snapshot *snapshot, const char *name, ProgressFunction progress = DefaultProgressFunction);
+
 	private:
 		DataStore *mDataStore;
 		uint8_t *mEncKey;
 		uint8_t *mMacKey;
 		uint8_t *mHashKey;
 		uint8_t *mRollKey;
+		
+		struct MallocDeletor;
+
+		void uploadBlock(const uint8_t *block, size_t size, uint8_t *outhmac, ProgressFunction progress);
+		
+		char nibbleToHex(uint8_t nb) const;
+		int hexToNibble(char h) const;
+		std::string hmac256ToString(uint8_t *hmac) const;
+		void hmac256strToHmac(const char *str, uint8_t *outHmac);
 	};
 }

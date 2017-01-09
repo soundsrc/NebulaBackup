@@ -23,7 +23,9 @@
 #include <vector>
 #include <stdint.h>
 #include <string.h>
+#include <openssl/sha.h>
 #include "ProgressFunction.h"
+#include "FileInfo.h"
 #include "ZeroedString.h"
 #include "ZeroedAllocator.h"
 
@@ -39,44 +41,30 @@ namespace Nebula
 	class Snapshot
 	{
 	public:
-		Snapshot(Repository& repo);
+		Snapshot();
 		~Snapshot();
-		
-		/**
-		 * Uploads a file to the backup.
-		 * The upload algorithm may optionally split the file into multiple
-		 * blocks and upload each individually, and may choose to 
-		 * A file maybe uploaded to the backup, however, it won't have an
-		 * reference until commit() is called.
-		 */
-		void uploadFile(const char *path, FileStream& fileStream, ProgressFunction progress = DefaultProgressFunction);
-		
-		/**
-		 * Download a file.
-		 */
-		void downloadFile(const char *path, OutputStream& outputStream, ProgressFunction progress = DefaultProgressFunction);
 
-		/**
-		 * Loads an existing snapshot from the repo.
-		 */
-		void load(const char *name);
-
-		/**
-		 * A snapshot is not complete until we commit the snapshot data.
-		 * The snapshot is
-		 * @param name Snapshot name, which should be unique from other snapshots.
-		 */
-		void commit(const char *name);
-	private:
-		Repository& mRepository;
-		std::string mName;
-		
 		struct BlockHash
 		{
 			int size;
 			uint8_t hmac256[32];
 		};
 
+		void addFileEntry(const char *path,
+						  const char *user,
+						  const char *group,
+						  FileType type,
+						  uint16_t mode,
+						  uint64_t size,
+						  time_t mtime,
+						  uint8_t blockSizeLog,
+						  const uint8_t *sha256,
+						  int numBlocks,
+						  const BlockHash *blockHashes);
+	
+		//void listFileEntries();
+		//void deleteFileEntry(const char *path);
+	private:
 		struct FileEntry
 		{
 			int pathIndex; // pathname to the file
@@ -88,7 +76,7 @@ namespace Nebula
 			uint8_t type; // flags
 			uint8_t blockSizeLog;
 			uint16_t numBlocks;
-			uint8_t sha256[32];
+			uint8_t sha256[SHA256_DIGEST_LENGTH];
 			int blockIndex;
 		};
 		
@@ -111,8 +99,7 @@ namespace Nebula
 		private:
 			const std::vector<char, ZeroedAllocator<char>>& mStringTable;
 		};
-		
-		struct MallocDeletor;
+	
 
 		//
 		std::map<const char *, int, StringComparer> mStringTable;
@@ -122,11 +109,7 @@ namespace Nebula
 		
 		std::mutex mMutex;
 	
-		char nibbleToHex(uint8_t nb) const;
-		int hexToNibble(char h) const;
-		std::string hmac256ToString(uint8_t *hmac) const;
-		void hmac256strToHmac(const char *str, uint8_t *outHmac);
-		void uploadBlock(const uint8_t *block, size_t size, uint8_t *outhmac, ProgressFunction progress = DefaultProgressFunction);
 		int insertStringTable(const char *str);
+		int addBlockHashes(const BlockHash *blockHashes, int count);
 	};
 }
