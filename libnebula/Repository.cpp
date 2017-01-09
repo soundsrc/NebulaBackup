@@ -24,10 +24,12 @@ extern "C" {
 #include "compat/stdlib.h"
 #include "compat/string.h"
 }
+#include "ScopedExit.h"
 #include "FileInfo.h"
 #include "RollingHash.h"
 #include "EncryptedOutputStream.h"
 #include "DecryptedInputStream.h"
+#include "LZMAInputStream.h"
 #include "ZeroedArray.h"
 #include "Exception.h"
 #include "DataStore.h"
@@ -326,6 +328,77 @@ namespace Nebula
 							   blockHashes.size(),
 							   &blockHashes[0]);
 	}
+	
+	bool Repository::downloadFile(Snapshot *snapshot, const char *srcPath, OutputStream& fileStream, ProgressFunction progress)
+	{
+		using namespace boost;
+
+		const Snapshot::FileEntry *fe = snapshot->getFileEntry(srcPath);
+		if(!fe) {
+			return false;
+		}
+		
+		const Snapshot::BlockHash *blockHashes = snapshot->indexToBlockHash(fe->blockIndex);
+		for(int i = 0; i < fe->numBlocks; ++i) {
+			std::string objectPath = "/data/" + hmac256ToString(blockHashes[i].hmac256);
+			
+			filesystem::path tmpPath = filesystem::unique_path();
+			scopedExit([tmpPath] { filesystem::remove(tmpPath); });
+
+			// download the object to tmpFile
+			FileStream tmpStream(tmpPath.c_str(), FileMode::Write);
+			mDataStore->get(objectPath.c_str(), tmpStream);
+			tmpStream.close();
+
+			// read the HMAC
+			FileStream tmpInStream(tmpPath.c_str(), FileMode::Read);
+			uint8_t hmac[SHA256_DIGEST_LENGTH];
+			if(tmpInStream.read(hmac, sizeof(hmac)) != sizeof(hmac)) {
+				throw FileIOException("Failed to decrypt file.");
+			}
+			
+			uint8_t buffer[8192];
+			size_t n;
+
+			// first pass: verify HMAC
+			{
+				HMAC_CTX hctx;
+				HMAC_CTX_init(&hctx);
+				scopedExit([&hctx] { HMAC_CTX_cleanup(&hctx); });
+
+				if(!HMAC_Init(&hctx, mMacKey, SHA256_DIGEST_LENGTH, EVP_sha256())) {
+					throw VerificationFailedException("Failed to verify data block.");
+				}
+				
+				while((n = tmpInStream.read(buffer, sizeof(buffer))) > 0) {
+					if(!HMAC_Update(&hctx, buffer, n)) {
+						throw VerificationFailedException("Failed to verify data block.");
+					}
+				}
+				
+				uint8_t fileHmac[SHA256_DIGEST_LENGTH];
+				if(!HMAC_Final(&hctx, fileHmac, nullptr)) {
+					throw VerificationFailedException("Failed to verify data block.");
+				}
+				
+				if(memcmp(fileHmac, hmac, SHA256_DIGEST_LENGTH) != 0) {
+					throw VerificationFailedException("Failed to verify data block.");
+				}
+				
+				tmpInStream.seek(SHA256_DIGEST_LENGTH);
+			}
+			
+			// sceond pass: decrypt and uncompress
+			DecryptedInputStream decStream(tmpInStream, EVP_aes_256_cbc(), mEncKey);
+			LZMAInputStream lzStream(decStream);
+
+			while((n = lzStream.read(buffer, sizeof(buffer))) > 0) {
+				fileStream.write(buffer, n);
+			}
+		}
+		
+		return true;
+	}
 
 	char Repository::nibbleToHex(uint8_t nb) const
 	{
@@ -344,7 +417,7 @@ namespace Nebula
 		return 0;
 	}
 	
-	std::string Repository::hmac256ToString(uint8_t *hmac) const
+	std::string Repository::hmac256ToString(const uint8_t *hmac) const
 	{
 		std::string hmacStr;
 		hmacStr.reserve(64);

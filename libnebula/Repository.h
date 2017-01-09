@@ -95,6 +95,11 @@ namespace Nebula
 		 */
 		void uploadFile(Snapshot *snapshot, const char *destPath, FileStream& fileStream, ProgressFunction progress = DefaultProgressFunction);
 		
+		/**
+		 * Downloads a file to the output stream.
+		 */
+		bool downloadFile(Snapshot *snapshot, const char *srcPath, OutputStream& fileStream, ProgressFunction progress = DefaultProgressFunction);
+		
 		
 		/**
 		 * Commits the snapshot to the repository.
@@ -114,7 +119,7 @@ namespace Nebula
 		
 		char nibbleToHex(uint8_t nb) const;
 		int hexToNibble(char h) const;
-		std::string hmac256ToString(uint8_t *hmac) const;
+		std::string hmac256ToString(const uint8_t *hmac) const;
 		void hmac256strToHmac(const char *str, uint8_t *outHmac);
 	};
 }

@@ -40,6 +40,7 @@ public: \
 	DEFINE_EXCEPTION(InsufficientBufferSizeException);
 	DEFINE_EXCEPTION(LZMAException);
 	DEFINE_EXCEPTION(IndexOutOfBoundException);
+	DEFINE_EXCEPTION(VerificationFailedException);
 	
 #undef DEFINE_EXCEPTION
 
