@@ -85,6 +85,22 @@ namespace Nebula
 		return &f->second;
 	}
 	
+	const char *Snapshot::indexToString(int n) const
+	{
+		if(n < 0 || n >= mStringBuffer.size()) {
+			throw IndexOutOfBoundException("Index is out of bound.");
+		}
+		return (const char *)&mStringBuffer[n];
+	}
+	
+	const Snapshot::BlockHash *Snapshot::indexToBlockHash(int n) const
+	{
+		if(n < 0 || n >= mBlockHashes.size()) {
+			throw IndexOutOfBoundException("Index is out of bound.");
+		}
+		return &mBlockHashes[n];
+	}
+	
 	int Snapshot::insertStringTable(const char *str)
 	{
 		auto strIndex = mStringTable.find(str);

@@ -81,8 +81,8 @@ namespace Nebula
 		//void deleteFileEntry(const char *path);
 		
 		
-		const char *indexToString(int n) const { return (const char *)&mStringBuffer[n]; }
-		const BlockHash *indexToBlockHash(int n) const { return &mBlockHashes[n]; }
+		const char *indexToString(int n) const;
+		const BlockHash *indexToBlockHash(int n) const;
 	private:
 
 		class StringComparer

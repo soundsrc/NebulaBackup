@@ -39,6 +39,7 @@ public: \
 	DEFINE_EXCEPTION(EncryptionFailedException);
 	DEFINE_EXCEPTION(InsufficientBufferSizeException);
 	DEFINE_EXCEPTION(LZMAException);
+	DEFINE_EXCEPTION(IndexOutOfBoundException);
 	
 #undef DEFINE_EXCEPTION
 
