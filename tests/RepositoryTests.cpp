@@ -91,3 +91,49 @@ TEST(RepositoryTests, SmallFileUploadTest)
 	
 	EXPECT_FALSE(exists(tmpPath));
 }
+
+TEST(RepositoryTests, LargeFileUploadTest)
+{
+	using namespace boost::filesystem;
+	using namespace Nebula;
+	
+	path tmpPath = unique_path();
+	EXPECT_TRUE( create_directory(tmpPath) );
+	
+	{
+		scopedExit([tmpPath] { remove_all(tmpPath); });
+		
+		FileDataStore ds(tmpPath.c_str());
+		Repository repo(&ds);
+		
+		EXPECT_NO_THROW(repo.initializeRepository("@&*^%#bh1237"));
+		
+		std::unique_ptr<Snapshot> snapshot(repo.createSnapshot());
+		
+		std::vector<uint8_t> randomData1, randomData2;
+		randomData1.resize(4 * 1024 * 1024); // 4MB?
+		arc4random_buf(&randomData1[0], randomData1.size());
+		
+		path tmpFile = unique_path();
+		scopedExit([tmpFile] { remove(tmpFile); });
+		
+		FILE *fp = fopen(tmpFile.c_str(), "wb");
+		EXPECT_TRUE(fp);
+		if(fp) {
+			fwrite(&randomData1[0], 1, randomData1.size(), fp);
+			fclose(fp);
+			
+			FileStream fs(tmpFile.c_str(), FileMode::Read);
+			EXPECT_NO_THROW(repo.uploadFile(snapshot.get(), "/random/path/to/file", fs));
+			
+			randomData2.resize(4 * 1024 * 1024);
+			MemoryOutputStream readStream(&randomData2[0], randomData2.size());
+			EXPECT_FALSE(repo.downloadFile(snapshot.get(), "/not/exist", readStream));
+			EXPECT_TRUE(repo.downloadFile(snapshot.get(), "/random/path/to/file", readStream));
+			EXPECT_TRUE(memcmp(&randomData1[0], &randomData2[0], randomData1.size()) == 0);
+		}
+	}
+	
+	EXPECT_FALSE(exists(tmpPath));
+}
+
