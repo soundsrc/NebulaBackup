@@ -348,7 +348,9 @@ namespace Nebula
 
 			// download the object to tmpFile
 			FileStream tmpStream(tmpPath.c_str(), FileMode::Write);
-			mDataStore->get(objectPath.c_str(), tmpStream);
+			if(!mDataStore->get(objectPath.c_str(), tmpStream)) {
+				throw FileNotFoundException("Missing block from repository. Corrupted repository?");
+			}
 			tmpStream.close();
 
 			// read the HMAC
