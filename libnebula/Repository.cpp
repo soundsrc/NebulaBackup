@@ -205,6 +205,7 @@ namespace Nebula
 	
 	void Repository::compressEncryptAndUploadBlock(const uint8_t *block, size_t size, uint8_t *outhmac, ProgressFunction progress)
 	{
+		// take the plain text HMAC and that is the block file name
 		if(!HMAC(EVP_sha256(), mHashKey, SHA256_DIGEST_LENGTH, block, size, outhmac, nullptr)) {
 			throw EncryptionFailedException("Failed to HMAC block.");
 		}
@@ -219,22 +220,27 @@ namespace Nebula
 		
 		std::unique_ptr<uint8_t, MallocDeletor> compressData( (uint8_t *)malloc(size * 2) );
 		
+		// compress the block with LZMA2
 		MemoryOutputStream compressedStream(compressData.get(), size * 2);
 		LZMAUtils::compress(blockStream, compressedStream, nullptr);
 		compressedStream.close();
-		
+
+		// allocate enough buffer to store a HMAC + IV + compressed data
 		size_t maxEncryptedLength = EVP_MAX_IV_LENGTH + compressedStream.size() + EVP_MAX_BLOCK_LENGTH;
 		std::unique_ptr<uint8_t, MallocDeletor> encryptedData( (uint8_t *)malloc(SHA256_DIGEST_LENGTH + maxEncryptedLength) );
 		MemoryInputStream encInStream(compressedStream.data(), compressedStream.size());
 		MemoryOutputStream encOutStreamMem(encryptedData.get() + SHA256_DIGEST_LENGTH, maxEncryptedLength);
 		EncryptedOutputStream encOutStream(encOutStreamMem, EVP_aes_256_cbc(), mEncKey);
-		encInStream.copyTo(encOutStream);
+		encInStream.copyTo(encOutStream); // encrypt
 		encOutStream.close();
+		encOutStreamMem.close();
 
+		// HMAC the encrypted data, the HMAC is stored at the beginning of the encrypted data stream
 		if(!HMAC(EVP_sha256(), mMacKey, SHA256_DIGEST_LENGTH, encOutStreamMem.data(), encOutStreamMem.size(), encryptedData.get(), nullptr)) {
 			throw EncryptionFailedException("Failed to HMAC encrypted block.");
 		}
 		
+		// upload block
 		MemoryInputStream uploadStream(encryptedData.get(), SHA256_DIGEST_LENGTH + encOutStreamMem.size());
 		mDataStore->put(uploadPath.c_str(), uploadStream);
 	}
@@ -391,7 +397,7 @@ namespace Nebula
 				tmpInStream.seek(SHA256_DIGEST_LENGTH);
 			}
 			
-			// sceond pass: decrypt and uncompress
+			// second pass: decrypt and uncompress
 			DecryptedInputStream decStream(tmpInStream, EVP_aes_256_cbc(), mEncKey);
 			LZMAInputStream lzStream(decStream);
 
