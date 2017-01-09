@@ -270,7 +270,6 @@ namespace Nebula
 			SHA256_Update(&sha256, buffer.get(), fileLength);
 			
 			Snapshot::BlockHash blockHash;
-			blockHash.size = fileLength;
 			compressEncryptAndUploadBlock(buffer.get(), fileLength, blockHash.hmac256, progress);
 			blockHashes.push_back(blockHash);
 			
@@ -296,7 +295,6 @@ namespace Nebula
 					SHA256_Update(&sha256, &blockBuffer[0], blockBuffer.size());
 					
 					Snapshot::BlockHash blockHash;
-					blockHash.size = blockBuffer.size();
 					// upload block
 					compressEncryptAndUploadBlock(&blockBuffer[0], blockBuffer.size(), blockHash.hmac256, progress);
 					blockHashes.push_back(blockHash);
@@ -306,7 +304,6 @@ namespace Nebula
 			
 			if(!blockBuffer.empty()) {
 				Snapshot::BlockHash blockHash;
-				blockHash.size = blockBuffer.size();
 				SHA256_Update(&sha256, &blockBuffer[0], blockBuffer.size());
 				compressEncryptAndUploadBlock(&blockBuffer[0], blockBuffer.size(), blockHash.hmac256, progress);
 				blockHashes.push_back(blockHash);
