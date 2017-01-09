@@ -201,7 +201,7 @@ namespace Nebula
 		return new Snapshot();
 	}
 	
-	void Repository::uploadBlock(const uint8_t *block, size_t size, uint8_t *outhmac, ProgressFunction progress)
+	void Repository::compressEncryptAndUploadBlock(const uint8_t *block, size_t size, uint8_t *outhmac, ProgressFunction progress)
 	{
 		if(!HMAC(EVP_sha256(), mHashKey, SHA256_DIGEST_LENGTH, block, size, outhmac, nullptr)) {
 			throw EncryptionFailedException("Failed to HMAC block.");
@@ -271,7 +271,7 @@ namespace Nebula
 			
 			Snapshot::BlockHash blockHash;
 			blockHash.size = fileLength;
-			uploadBlock(buffer.get(), fileLength, blockHash.hmac256, progress);
+			compressEncryptAndUploadBlock(buffer.get(), fileLength, blockHash.hmac256, progress);
 			blockHashes.push_back(blockHash);
 			
 		} else {
@@ -298,15 +298,18 @@ namespace Nebula
 					Snapshot::BlockHash blockHash;
 					blockHash.size = blockBuffer.size();
 					// upload block
-					uploadBlock(&blockBuffer[0], blockBuffer.size(), blockHash.hmac256, progress);
+					compressEncryptAndUploadBlock(&blockBuffer[0], blockBuffer.size(), blockHash.hmac256, progress);
 					blockHashes.push_back(blockHash);
 					blockBuffer.clear();
 				}
 			}
 			
 			if(!blockBuffer.empty()) {
+				Snapshot::BlockHash blockHash;
+				blockHash.size = blockBuffer.size();
 				SHA256_Update(&sha256, &blockBuffer[0], blockBuffer.size());
-				uploadBlock(&blockBuffer[0], blockBuffer.size(), nullptr, progress);
+				compressEncryptAndUploadBlock(&blockBuffer[0], blockBuffer.size(), blockHash.hmac256, progress);
+				blockHashes.push_back(blockHash);
 			}
 		}
 		
@@ -314,7 +317,17 @@ namespace Nebula
 		SHA256_Final(fileSHA256, &sha256);
 		
 		// update the index
-		
+		snapshot->addFileEntry(destPath,
+							   fileInfo.userName().c_str(),
+							   fileInfo.groupName().c_str(),
+							   fileInfo.type(),
+							   fileInfo.mode(),
+							   fileInfo.length(),
+							   fileInfo.lastModifyTime(),
+							   blockSizeLog,
+							   fileSHA256,
+							   blockHashes.size(),
+							   &blockHashes[0]);
 	}
 
 	char Repository::nibbleToHex(uint8_t nb) const
