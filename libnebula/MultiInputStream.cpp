@@ -42,8 +42,10 @@ namespace Nebula
 			if(n == 0) {
 				++mCurStream;
 				if(mCurStream == mStreamList.end()) break;
+			} else {
+				pData += n;
+				bytesRead += n;
 			}
-			bytesRead += n;
 		}
 		
 		return bytesRead;
