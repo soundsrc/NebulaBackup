@@ -40,4 +40,14 @@ namespace Nebula
 
 		return size;
 	}
+	
+	bool MemoryInputStream::canRewind() const
+	{
+		return true;
+	}
+	
+	void MemoryInputStream::rewind()
+	{
+		mNext = mStart;
+	}
 }

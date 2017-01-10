@@ -30,6 +30,16 @@ namespace Nebula
 	{
 	}
 	
+	bool InputStream::canRewind() const
+	{
+		return false;
+	}
+	
+	void InputStream::rewind()
+	{
+		throw InvalidOperationException("Input stream does not support rewind().");
+	}
+	
 	void InputStream::copyTo(OutputStream& outStream)
 	{
 		uint8_t buffer[16384];

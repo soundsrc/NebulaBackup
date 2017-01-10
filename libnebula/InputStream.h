@@ -46,6 +46,16 @@ namespace Nebula
 		virtual void close();
 		
 		/**
+		 * True if the stream can be rewind
+		 */
+		virtual bool canRewind() const;
+		
+		/**
+		 * Rewinds the stream to the beginning, if supported.
+		 */
+		virtual void rewind();
+		
+		/**
 		 * Copies the content of the input stream to the output stream
 		 */
 		void copyTo(OutputStream& outStream);

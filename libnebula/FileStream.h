@@ -41,7 +41,8 @@ namespace Nebula
 		
 		const std::string& path() const { return mPath; }
 
-		void rewind();
+		virtual bool canRewind() const override;
+		virtual void rewind() override;
 		long seek(long offset);
 		virtual size_t read(void *data, size_t size) override;
 		virtual void write(const void *data, size_t size) override;

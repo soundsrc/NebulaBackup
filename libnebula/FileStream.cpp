@@ -82,6 +82,11 @@ error:
 		return true;
 	}
 
+	bool FileStream::canRewind() const
+	{
+		return true;
+	}
+	
 	void FileStream::rewind()
 	{
 		if(fseek(mFp, 0L, SEEK_SET) < 0) {

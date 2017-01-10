@@ -34,6 +34,9 @@ namespace Nebula
 		size_t size() const { return mNext - mStart; }
 
 		virtual size_t read(void *data, size_t size) override;
+		
+		virtual bool canRewind() const override;
+		virtual void rewind() override;
 	private:
 		const uint8_t *mStart;
 		const uint8_t *mNext;
