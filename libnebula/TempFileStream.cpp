@@ -15,6 +15,9 @@
  */
 #include <stdlib.h>
 #include <boost/filesystem.hpp>
+extern "C" {
+#include "compat/string.h"
+}
 #include "Exception.h"
 #include "MemoryOutputStream.h"
 #include "MemoryInputStream.h"
@@ -31,8 +34,26 @@ namespace Nebula
 	
 	TempFileStream::~TempFileStream()
 	{
+		explicit_bzero(mBuffer, TEMP_BUFFER_SIZE);
 		free(mBuffer);
+
 		if(mFileStream) {
+			mFileStream->close();
+
+			// shred
+			long length = boost::filesystem::file_size(mTmpFile);
+			FILE *fp = fopen(mTmpFile.c_str(), "r+b");
+			if(fp) {
+				char buffer[4096];
+				while(length > 0) {
+					arc4random_buf(buffer, sizeof(buffer));
+					fwrite(buffer, 1, length > sizeof(buffer) ? sizeof(buffer) : length, fp);
+					length -= sizeof(buffer);
+				}
+				fclose(fp);
+			}
+
+			// delete
 			boost::filesystem::remove(mTmpFile);
 		}
 	}
