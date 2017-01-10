@@ -34,6 +34,7 @@ extern "C" {
 #include "Exception.h"
 #include "DataStore.h"
 #include "BufferedInputStream.h"
+#include "TempFileStream.h"
 #include "FileStream.h"
 #include "MemoryOutputStream.h"
 #include "MemoryInputStream.h"
@@ -88,17 +89,13 @@ namespace Nebula
 		arc4random_buf(mRollKey, EVP_MAX_KEY_LENGTH);
 		
 		// encrypt the encryption key with the derived key
-		uint8_t keyData[1024];
-		MemoryOutputStream keyStream(keyData, sizeof(keyData));
+		TempFileStream keyStream;
 
 		keyStream.write("NEBULABACKUP", 12);
-		uint32_t v;
-		v = 0x00010000;
-		keyStream.write(&v, sizeof(v));
-		v = 0;
-		keyStream.write(&v, sizeof(v));
-		v = rounds;
-		keyStream.write(&v, sizeof(v));
+		
+		keyStream.writeType<uint32_t>(0x00010000);
+		keyStream.writeType<uint32_t>(0);
+		keyStream.writeType<uint32_t>(rounds);
 
 		keyStream.write(salt, PKCS5_SALT_LEN);
 
@@ -124,47 +121,46 @@ namespace Nebula
 		keyStream.write(hmac, sizeof(hmac));
 		keyStream.close();
 
-		MemoryInputStream keyStreamResult(keyStream.data(), keyStream.size());
-		mDataStore->put("/key", keyStreamResult);
+		mDataStore->put("/key", *keyStream.inputStream());
 	}
 	
 	bool Repository::unlockRepository(const char *password)
 	{
-		uint8_t keyData[1024];
-		MemoryOutputStream keyStream(keyData, sizeof(keyData));
+		TempFileStream keyStream;
 		
 		if(!mDataStore->get("/key", keyStream)) {
 			throw InvalidDataException("Repository does not exist at this path.");
 		}
+		
+		auto stream = keyStream.inputStream();
 
 		char magic[12];
-		MemoryInputStream stream(keyStream.data(), keyStream.size());
-		stream.read(magic, sizeof(magic));
+		stream->read(magic, sizeof(magic));
 		if(strncmp(magic, "NEBULABACKUP", 12) != 0) {
 			throw InvalidDataException("Back up stream is invalid.");
 		}
 
 		uint32_t version = 0;
-		stream.read(&version, sizeof(version));
+		stream->read(&version, sizeof(version));
 		if(version != 0x00010000) {
 			throw InvalidDataException("Invalid version number.");	
 		}
 		
 		uint32_t algorithm;
-		stream.read(&algorithm, sizeof(algorithm)); // algorithm
+		stream->read(&algorithm, sizeof(algorithm)); // algorithm
 		if(algorithm != 0) {
 			throw InvalidDataException("Invalid algorithm.");
 			
 		}
 		
 		uint32_t rounds;
-		stream.read(&rounds, sizeof(rounds));
+		stream->read(&rounds, sizeof(rounds));
 		if(rounds > 100000) {
 			throw InvalidDataException("Invalid number of rounds.");
 		}
 		
 		uint8_t salt[PKCS5_SALT_LEN];
-		stream.read(salt, sizeof(salt));
+		stream->read(salt, sizeof(salt));
 		ZeroedArray<uint8_t, EVP_MAX_KEY_LENGTH> derivedKey;
 		if(!PKCS5_PBKDF2_HMAC(password, strlen(password), salt, sizeof(salt), rounds, EVP_sha512(), derivedKey.size(), derivedKey.data())) {
 			throw EncryptionFailedException("Failed to derive key from password.");
@@ -173,8 +169,8 @@ namespace Nebula
 		uint8_t encKeyData[EVP_MAX_KEY_LENGTH * 4 + EVP_MAX_BLOCK_LENGTH];
 		uint8_t hmac1[EVP_MAX_MD_SIZE];
 		uint8_t hmac2[EVP_MAX_MD_SIZE];
-		stream.read(encKeyData, sizeof(encKeyData));
-		stream.read(hmac1, sizeof(hmac1));
+		stream->read(encKeyData, sizeof(encKeyData));
+		stream->read(hmac1, sizeof(hmac1));
 		unsigned int hmacKeyLen = sizeof(hmac2);
 		
 		if(!HMAC(EVP_sha256(), derivedKey.data(), derivedKey.size(), encKeyData, sizeof(encKeyData), hmac2, &hmacKeyLen)) {
