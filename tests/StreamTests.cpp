@@ -23,6 +23,7 @@
 extern "C" {
 #include "compat/string.h"
 }
+#include "libnebula/TempFileStream.h"
 #include "libnebula/ScopedExit.h"
 #include "libnebula/Exception.h"
 #include "libnebula/LZMAUtils.h"
@@ -200,6 +201,42 @@ TEST(StreamTests, LZMAStreamReadWrite)
 		MemoryOutputStream outStream2(&outData[0], outData.size());
 		
 		copyStream(lzStream, outStream2, 1 + (rand() % 4096));
+		
+		EXPECT_TRUE(memcmp(&inData[0], &outData[0], size) == 0);
+	}
+}
+
+TEST(StreamTests, TempFileStreamReadWrite)
+{
+	using namespace Nebula;
+	
+	std::vector<uint8_t> inData, outData;
+	srand(time(nullptr));
+	
+	{
+		size_t size = (4 * 1024 * 1024) - 100;
+		inData.resize(size);
+		outData.resize(size);
+		
+		arc4random_buf(&inData[0], inData.size());
+		TempFileStream tmpFile;
+		tmpFile.write(&inData[0], size);
+		auto inStream = tmpFile.inputStream();
+		inStream->readExpected(&outData[0], outData.size());
+
+		EXPECT_TRUE(memcmp(&inData[0], &outData[0], size) == 0);
+	}
+
+	{
+		size_t size = (4 * 1024 * 1024) + 100;
+		inData.resize(size);
+		outData.resize(size);
+		
+		arc4random_buf(&inData[0], inData.size());
+		TempFileStream tmpFile;
+		tmpFile.write(&inData[0], size);
+		auto inStream = tmpFile.inputStream();
+		inStream->readExpected(&outData[0], outData.size());
 		
 		EXPECT_TRUE(memcmp(&inData[0], &outData[0], size) == 0);
 	}
