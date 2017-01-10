@@ -240,4 +240,19 @@ TEST(StreamTests, TempFileStreamReadWrite)
 		
 		EXPECT_TRUE(memcmp(&inData[0], &outData[0], size) == 0);
 	}
+	
+	{
+		size_t size = (4 * 1024 * 1024) + 100;
+		inData.resize(size);
+		outData.resize(size);
+		
+		arc4random_buf(&inData[0], inData.size());
+		TempFileStream tmpFile;
+		tmpFile.write(&inData[0], size / 2);
+		tmpFile.write(&inData[0] + size / 2, size / 2);
+		auto inStream = tmpFile.inputStream();
+		inStream->readExpected(&outData[0], outData.size());
+		
+		EXPECT_TRUE(memcmp(&inData[0], &outData[0], size) == 0);
+	}
 }
