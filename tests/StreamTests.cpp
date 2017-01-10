@@ -263,15 +263,15 @@ TEST(StreamTests, MultiInputStreamReads)
 	using namespace Nebula;
 
 	std::vector<uint8_t> inData, outData;
-	inData.reserve(4096);
-	outData.reserve(4096);
+	inData.resize(4096);
+	outData.resize(4096);
 	
 	arc4random_buf(&inData[0], inData.size());
 
 	MemoryInputStream m1(&inData[0], 1024);
 	MemoryInputStream m2(&inData[1024], 1024);
 	MemoryInputStream m3(&inData[2048], 1024);
-	MemoryInputStream m4(&inData[3096], 1024);
+	MemoryInputStream m4(&inData[3072], 1024);
 	
 	MultiInputStream mi{ &m1, &m2, &m3, &m4 };
 	EXPECT_NO_THROW(mi.readExpected(&outData[0], 4096));
