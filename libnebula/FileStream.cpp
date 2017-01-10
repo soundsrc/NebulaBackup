@@ -122,6 +122,11 @@ error:
 		}
 	}
 
+	void FileStream::flush()
+	{
+		fflush(mFp);
+	}
+	
 	void FileStream::close()
 	{
 		if(mFp) {

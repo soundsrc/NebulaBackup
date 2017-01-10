@@ -45,6 +45,7 @@ namespace Nebula
 		long seek(long offset);
 		virtual size_t read(void *data, size_t size) override;
 		virtual void write(const void *data, size_t size) override;
+		virtual void flush() override;
 		virtual void close() override;
 	private:
 		FILE *mFp;
