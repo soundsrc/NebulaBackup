@@ -86,7 +86,6 @@ namespace Nebula
 		}
 		if(mFileStream) {
 			mFileStream->close();
-			mFileStream = nullptr;
 			return std::make_shared<FileStream>(mTmpFile.c_str(), FileMode::Read);
 		}
 
