@@ -36,6 +36,7 @@ public: \
 	DEFINE_EXCEPTION(RepositoryLockedException);
 	DEFINE_EXCEPTION(InvalidRepositoryException);
 	DEFINE_EXCEPTION(InvalidDataException);
+	DEFINE_EXCEPTION(InvalidOperationException);
 	DEFINE_EXCEPTION(EncryptionFailedException);
 	DEFINE_EXCEPTION(InsufficientBufferSizeException);
 	DEFINE_EXCEPTION(LZMAException);

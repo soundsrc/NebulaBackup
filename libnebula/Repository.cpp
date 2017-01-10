@@ -34,6 +34,7 @@ extern "C" {
 #include "Exception.h"
 #include "DataStore.h"
 #include "BufferedInputStream.h"
+#include "MultiInputStream.h"
 #include "TempFileStream.h"
 #include "FileStream.h"
 #include "MemoryOutputStream.h"
@@ -129,7 +130,7 @@ namespace Nebula
 		TempFileStream keyStream;
 		
 		if(!mDataStore->get("/key", keyStream)) {
-			throw InvalidDataException("Repository does not exist at this path.");
+			throw InvalidRepositoryException("Repository does not exist at this path.");
 		}
 		
 		auto stream = keyStream.inputStream();
@@ -137,26 +138,26 @@ namespace Nebula
 		char magic[12];
 		stream->read(magic, sizeof(magic));
 		if(strncmp(magic, "NEBULABACKUP", 12) != 0) {
-			throw InvalidDataException("Back up stream is invalid.");
+			throw InvalidRepositoryException("Back up stream is invalid.");
 		}
 
 		uint32_t version = 0;
 		stream->read(&version, sizeof(version));
 		if(version != 0x00010000) {
-			throw InvalidDataException("Invalid version number.");	
+			throw InvalidRepositoryException("Invalid version number.");
 		}
 		
 		uint32_t algorithm;
 		stream->read(&algorithm, sizeof(algorithm)); // algorithm
 		if(algorithm != 0) {
-			throw InvalidDataException("Invalid algorithm.");
+			throw InvalidRepositoryException("Invalid algorithm.");
 			
 		}
 		
 		uint32_t rounds;
 		stream->read(&rounds, sizeof(rounds));
 		if(rounds > 100000) {
-			throw InvalidDataException("Invalid number of rounds.");
+			throw InvalidRepositoryException("Invalid number of rounds.");
 		}
 		
 		uint8_t salt[PKCS5_SALT_LEN];
@@ -212,33 +213,45 @@ namespace Nebula
 			return;
 		}
 		
+		TempFileStream uploadStream;
+		EncryptedOutputStream encStream(uploadStream, EVP_aes_256_cbc(), mEncKey);
 		MemoryInputStream blockStream(block, size);
-		
-		std::unique_ptr<uint8_t, MallocDeletor> compressData( (uint8_t *)malloc(size * 2) );
-		
-		// compress the block with LZMA2
-		MemoryOutputStream compressedStream(compressData.get(), size * 2);
-		LZMAUtils::compress(blockStream, compressedStream, nullptr);
-		compressedStream.close();
 
-		// allocate enough buffer to store a HMAC + IV + compressed data
-		size_t maxEncryptedLength = EVP_MAX_IV_LENGTH + compressedStream.size() + EVP_MAX_BLOCK_LENGTH;
-		std::unique_ptr<uint8_t, MallocDeletor> encryptedData( (uint8_t *)malloc(SHA256_DIGEST_LENGTH + maxEncryptedLength) );
-		MemoryInputStream encInStream(compressedStream.data(), compressedStream.size());
-		MemoryOutputStream encOutStreamMem(encryptedData.get() + SHA256_DIGEST_LENGTH, maxEncryptedLength);
-		EncryptedOutputStream encOutStream(encOutStreamMem, EVP_aes_256_cbc(), mEncKey);
-		encInStream.copyTo(encOutStream); // encrypt
-		encOutStream.close();
-		encOutStreamMem.close();
+		// compress
+		LZMAUtils::compress(blockStream, encStream, nullptr);
+		encStream.close();
+
+
+		auto dataStream = uploadStream.inputStream();
+		if(!dataStream->canRewind()) {
+			throw InvalidArgumentException("This should not happen.");
+		}
 
 		// HMAC the encrypted data, the HMAC is stored at the beginning of the encrypted data stream
-		if(!HMAC(EVP_sha256(), mMacKey, SHA256_DIGEST_LENGTH, encOutStreamMem.data(), encOutStreamMem.size(), encryptedData.get(), nullptr)) {
-			throw EncryptionFailedException("Failed to HMAC encrypted block.");
-		}
+		uint8_t hmac[SHA256_DIGEST_LENGTH];
+		HMAC_CTX hctx;
+		HMAC_CTX_init(&hctx);
+		scopedExit([&hctx] { HMAC_CTX_cleanup(&hctx); });
 		
-		// upload block
-		MemoryInputStream uploadStream(encryptedData.get(), SHA256_DIGEST_LENGTH + encOutStreamMem.size());
-		mDataStore->put(uploadPath.c_str(), uploadStream);
+		if(!HMAC_Init(&hctx, mMacKey, SHA256_DIGEST_LENGTH, EVP_sha256())) {
+			throw EncryptionFailedException("Failed to initialize HMAC.");
+		}
+		uint8_t buffer[8192];
+		size_t n;
+		while((n = dataStream->read(buffer, sizeof(buffer))) > 0) {
+			if(!HMAC_Update(&hctx, buffer, n)) {
+				throw EncryptionFailedException("Failed to update HMAC.");
+			}
+		}
+		if(!HMAC_Final(&hctx, hmac, nullptr)) {
+			throw EncryptionFailedException("Failed to compute HMAC.");
+		}
+
+		dataStream->rewind();
+
+		MemoryInputStream hmacStream(hmac, sizeof(hmac));
+		MultiInputStream hmacCryptoStream{&hmacStream, dataStream.get()};
+		mDataStore->put(uploadPath.c_str(), hmacCryptoStream);
 	}
 
 	void Repository::uploadFile(Snapshot *snapshot, const char *destPath, FileStream& fileStream, ProgressFunction progress)
