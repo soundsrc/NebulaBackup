@@ -48,5 +48,13 @@ namespace Nebula
 		 * Output cannot be written to after close().
 		 */
 		virtual void close();
+		
+		/**
+		 * Write typed data in native-endian
+		 */
+		template<typename T>
+		void writeType(const T& v) {
+			this->write(&v, sizeof(T));
+		}
 	};
 }

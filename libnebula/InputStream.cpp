@@ -14,6 +14,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 #include <stdint.h>
+#include <strstream>
+#include "Exception.h"
 #include "OutputStream.h"
 #include "InputStream.h"
 
@@ -35,6 +37,17 @@ namespace Nebula
 		
 		while((n = this->read(buffer, sizeof(buffer))) > 0) {
 			outStream.write(buffer, n);
+		}
+	}
+	
+	void InputStream::readExpected(void *data, size_t size)
+	{
+		size_t n;
+		if((n = this->read(data, size)) != size) {
+			std::strstream ss;
+			ss << "InputStream::readExpected() attempted to read "
+				<< size << " bytes but instead got " << n << " bytes.";
+			throw ShortReadException(ss.str());
 		}
 	}
 }

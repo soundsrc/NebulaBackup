@@ -41,6 +41,7 @@ public: \
 	DEFINE_EXCEPTION(LZMAException);
 	DEFINE_EXCEPTION(IndexOutOfBoundException);
 	DEFINE_EXCEPTION(VerificationFailedException);
+	DEFINE_EXCEPTION(ShortReadException);
 	
 #undef DEFINE_EXCEPTION
 

@@ -49,5 +49,19 @@ namespace Nebula
 		 * Copies the content of the input stream to the output stream
 		 */
 		void copyTo(OutputStream& outStream);
+		
+		/**
+		 * Similar to read, but expects that exactly @a size bytes
+		 * are read. Exception throw if @a size bytes is unable to be
+		 * read.
+		 */
+		void readExpected(void *data, size_t size);
+		
+		template<typename T>
+		T readType() {
+			T v;
+			readExpected(&v, sizeof(T));
+			return v;
+		}
 	};
 }
