@@ -17,11 +17,13 @@
 #include <mutex>
 #include <math.h>
 #include <ctype.h>
+#include <stdint.h>
 #include <boost/filesystem.hpp>
 #include <openssl/hmac.h>
 #include <openssl/sha.h>
 #include "Exception.h"
 #include "DataStore.h"
+#include "TempFileStream.h"
 #include "BufferedInputStream.h"
 #include "MemoryInputStream.h"
 #include "MemoryOutputStream.h"
@@ -85,6 +87,84 @@ namespace Nebula
 		return &f->second;
 	}
 	
+	void Snapshot::load(InputStream& inStream)
+	{
+		std::lock_guard<std::mutex> lock(mMutex);
+		
+		uint32_t numFiles = inStream.readType<uint32_t>();
+		uint32_t stringTableSize = inStream.readType<uint32_t>() * 4;
+		uint32_t hashesCount = inStream.readType<uint32_t>();
+		
+		mStringBuffer.resize(stringTableSize);
+		inStream.readExpected(&mStringBuffer[0], stringTableSize);
+		
+		// build string table
+		const char *p = &mStringBuffer[0];
+		const char *end = p + stringTableSize;
+		while(p < end) {
+			mStringTable[p] = p - &mStringBuffer[0];
+			size_t n = strlen(p);
+			p += n + 1;
+			while(!*p && p < end) ++p;
+		}
+		
+		mBlockHashes.resize(hashesCount);
+		for(int i = 0; i < hashesCount; ++i) {
+			inStream.readExpected(mBlockHashes[i].hmac256, SHA256_DIGEST_LENGTH);
+		}
+		
+		for(int i = 0; i < numFiles; ++i) {
+			FileEntry fe;
+			fe.pathIndex = inStream.readType<uint32_t>();
+			fe.userIndex = inStream.readType<uint32_t>();
+			fe.groupIndex = inStream.readType<uint32_t>();
+			fe.mode = inStream.readType<uint16_t>();
+			inStream.readType<uint16_t>();
+			fe.type = inStream.readType<uint8_t>();
+			fe.blockSizeLog = inStream.readType<uint8_t>();
+			fe.numBlocks = inStream.readType<uint16_t>();
+			fe.size = inStream.readType<uint64_t>();
+			fe.mtime = inStream.readType<uint64_t>();
+			inStream.readExpected(fe.sha256, SHA256_DIGEST_LENGTH);
+			fe.blockIndex = inStream.readType<uint32_t>();
+		}
+	}
+	
+	void Snapshot::save(OutputStream& outStream)
+	{
+		std::lock_guard<std::mutex> lock(mMutex);
+
+		// file size, string table size, and block count
+		outStream.writeType<uint32_t>(mFiles.size());
+		outStream.writeType<uint32_t>((mStringTable.size() + 3) / 4); // string size is / 4
+		outStream.writeType<uint32_t>(mBlockHashes.size());
+		
+		// string table
+		outStream.write(&mStringTable[0], (mStringTable.size() + 3) & ~3);
+		
+		// block hashes
+		for(int i = 0; i < mBlockHashes.size(); ++i) {
+			outStream.write(mBlockHashes[i].hmac256, SHA256_DIGEST_LENGTH);
+		}
+		
+		for(auto& fkv : mFiles)
+		{
+			const FileEntry& fe = fkv.second;
+			outStream.writeType<uint32_t>(fe.pathIndex);
+			outStream.writeType<uint32_t>(fe.userIndex);
+			outStream.writeType<uint32_t>(fe.groupIndex);
+			outStream.writeType<uint16_t>(fe.mode);
+			outStream.writeType<uint16_t>(0);
+			outStream.writeType<uint8_t>(fe.type);
+			outStream.writeType<uint8_t>(fe.blockSizeLog);
+			outStream.writeType<uint16_t>(fe.numBlocks);
+			outStream.writeType<uint64_t>(fe.size);
+			outStream.writeType<uint64_t>(fe.mtime);
+			outStream.write(fe.sha256, SHA256_DIGEST_LENGTH);
+			outStream.writeType<uint32_t>(fe.blockIndex);
+		}
+	}
+
 	const char *Snapshot::indexToString(int n) const
 	{
 		if(n < 0 || n >= mStringBuffer.size()) {

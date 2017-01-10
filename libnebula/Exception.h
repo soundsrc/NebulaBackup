@@ -42,6 +42,7 @@ public: \
 	DEFINE_EXCEPTION(IndexOutOfBoundException);
 	DEFINE_EXCEPTION(VerificationFailedException);
 	DEFINE_EXCEPTION(ShortReadException);
+	DEFINE_EXCEPTION(InvalidFormatException);
 	
 #undef DEFINE_EXCEPTION
 

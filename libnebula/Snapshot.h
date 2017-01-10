@@ -30,6 +30,7 @@
 
 namespace Nebula
 {
+	class InputStream;
 	class OutputStream;
 	class FileStream;
 	class Repository;
@@ -80,6 +81,8 @@ namespace Nebula
 		//void listFileEntries();
 		//void deleteFileEntry(const char *path);
 		
+		void save(OutputStream& outStream);
+		void load(InputStream& inStream);
 		
 		const char *indexToString(int n) const;
 		const BlockHash *indexToBlockHash(int n) const;
