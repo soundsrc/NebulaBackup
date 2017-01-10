@@ -34,6 +34,7 @@ extern "C" {
 #include "libnebula/MemoryOutputStream.h"
 #include "libnebula/EncryptedOutputStream.h"
 #include "libnebula/DecryptedInputStream.h"
+#include "libnebula/MultiInputStream.h"
 #include "gtest/gtest.h"
 
 
@@ -255,4 +256,26 @@ TEST(StreamTests, TempFileStreamReadWrite)
 		
 		EXPECT_TRUE(memcmp(&inData[0], &outData[0], size) == 0);
 	}
+}
+
+TEST(StreamTests, MultiInputStreamReads)
+{
+	using namespace Nebula;
+
+	std::vector<uint8_t> inData, outData;
+	inData.reserve(4096);
+	outData.reserve(4096);
+	
+	arc4random_buf(&inData[0], inData.size());
+
+	MemoryInputStream m1(&inData[0], 1024);
+	MemoryInputStream m2(&inData[1024], 1024);
+	MemoryInputStream m3(&inData[2048], 1024);
+	MemoryInputStream m4(&inData[3096], 1024);
+	
+	MultiInputStream mi{ &m1, &m2, &m3, &m4 };
+	EXPECT_NO_THROW(mi.readExpected(&outData[0], 4096));
+	EXPECT_TRUE(memcmp(&inData[0], &outData[0], inData.size()) == 0);
+	EXPECT_EQ(mi.read(&outData[0], 4096), 0);
+	
 }
