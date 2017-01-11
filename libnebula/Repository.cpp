@@ -40,6 +40,7 @@ extern "C" {
 #include "MemoryOutputStream.h"
 #include "MemoryInputStream.h"
 #include "LZMAUtils.h"
+#include "StreamUtils.h"
 #include "Repository.h"
 
 namespace Nebula
@@ -198,6 +199,30 @@ namespace Nebula
 	Snapshot *Repository::createSnapshot()
 	{
 		return new Snapshot();
+	}
+	
+	Snapshot *Repository::loadSnapshot(const char *name, ProgressFunction progress)
+	{
+		std::unique_ptr<Snapshot> snapshot(new Snapshot());
+		
+		TempFileStream tmpSnapshotStream;
+		if(!mDataStore->get((std::string("/snapshot/") + name).c_str(), tmpSnapshotStream)) {
+			return nullptr;
+		}
+		
+		TempFileStream snapshotStream;
+		StreamUtils::decompressDecryptHMAC(EVP_aes_256_cbc(), mEncKey, mMacKey, *tmpSnapshotStream.inputStream(), snapshotStream);
+		snapshot->load(*snapshotStream.inputStream());
+		
+		return snapshot.release();
+	}
+	
+	void Repository::saveSnapshot(Snapshot *snapshot, const char *name, ProgressFunction progress)
+	{
+		TempFileStream tmpStream;
+		snapshot->save(tmpStream);
+		auto snapshotStream = StreamUtils::compressEncryptHMAC(EVP_aes_256_cbc(), mEncKey, mMacKey, *tmpStream.inputStream());
+		mDataStore->put((std::string("/snapshot/") + name).c_str(), *snapshotStream);
 	}
 	
 	void Repository::compressEncryptAndUploadBlock(const uint8_t *block, size_t size, uint8_t *outhmac, ProgressFunction progress)

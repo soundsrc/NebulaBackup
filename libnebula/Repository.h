@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <memory>
 #include <vector>
 #include <functional>
 #include <inttypes.h>
@@ -81,6 +82,10 @@ namespace Nebula
 		 * Useful for making incremental backups.
 		 */
 		Snapshot *loadSnapshot(const char *name, ProgressFunction progress = DefaultProgressFunction);
+		
+		/**
+		 */
+		void saveSnapshot(Snapshot *snapshot, const char *name, ProgressFunction progress = DefaultProgressFunction);
 		
 		/**
 		 * Lists the files in the snapshot.
