@@ -20,7 +20,9 @@
 #include "libnebula/backends/FileDataStore.h"
 #include "libnebula/ScopedExit.h"
 #include "libnebula/FileStream.h"
+#include "libnebula/MemoryInputStream.h"
 #include "libnebula/MemoryOutputStream.h"
+#include "libnebula/TempFileStream.h"
 #include "libnebula/ScopedExit.h"
 
 #include "gtest/gtest.h"
@@ -134,6 +136,50 @@ TEST(RepositoryTests, LargeFileUploadTest)
 		}
 	}
 	
+	EXPECT_FALSE(exists(tmpPath));
+}
+
+TEST(RepositoryTests, SnapshotTest)
+{
+	using namespace boost::filesystem;
+	using namespace Nebula;
+	
+	path tmpPath = unique_path();
+	EXPECT_TRUE( create_directory(tmpPath) );
+	
+	{
+		scopedExit([tmpPath] { remove_all(tmpPath); });
+		
+		FileDataStore ds(tmpPath.c_str());
+		Repository repo(&ds);
+		
+		EXPECT_NO_THROW(repo.initializeRepository("803487"));
+		
+		std::unique_ptr<Snapshot> snapshot(repo.createSnapshot());
+		
+		path tmpFile = unique_path();
+		scopedExit([tmpFile] { remove_all(tmpFile); });
+
+		FileStream fout(tmpFile.c_str(), FileMode::Write);
+		fout.writeType<uint8_t>(0);
+		fout.close();
+		
+		FileStream fin(tmpFile.c_str(), FileMode::Read);
+		repo.uploadFile(snapshot.get(), "/file1", fin, nullptr);
+		fin.rewind();
+		repo.uploadFile(snapshot.get(), "/file2", fin, nullptr);
+		fin.rewind();
+		repo.uploadFile(snapshot.get(), "/file3", fin, nullptr);
+		
+		EXPECT_NO_THROW(repo.commitSnapshot(snapshot.get(), "test-snapshot"));
+		
+		std::unique_ptr<Snapshot> loadedSnapshot (repo.loadSnapshot("test-snapshot", nullptr));
+		EXPECT_TRUE(loadedSnapshot->getFileEntry("/file1"));
+		EXPECT_TRUE(loadedSnapshot->getFileEntry("/file2"));
+		EXPECT_TRUE(loadedSnapshot->getFileEntry("/file3"));
+		EXPECT_FALSE(loadedSnapshot->getFileEntry("/file4"));
+		
+	}
 	EXPECT_FALSE(exists(tmpPath));
 }
 

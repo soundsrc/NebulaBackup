@@ -217,7 +217,7 @@ namespace Nebula
 		return snapshot.release();
 	}
 	
-	void Repository::saveSnapshot(Snapshot *snapshot, const char *name, ProgressFunction progress)
+	void Repository::commitSnapshot(Snapshot *snapshot, const char *name, ProgressFunction progress)
 	{
 		TempFileStream tmpStream;
 		snapshot->save(tmpStream);

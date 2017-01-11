@@ -82,11 +82,7 @@ namespace Nebula
 		 * Useful for making incremental backups.
 		 */
 		Snapshot *loadSnapshot(const char *name, ProgressFunction progress = DefaultProgressFunction);
-		
-		/**
-		 */
-		void saveSnapshot(Snapshot *snapshot, const char *name, ProgressFunction progress = DefaultProgressFunction);
-		
+
 		/**
 		 * Lists the files in the snapshot.
 		 * The callback function is invoked for each file.

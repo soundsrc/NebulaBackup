@@ -127,6 +127,7 @@ namespace Nebula
 			fe.mtime = inStream.readType<uint64_t>();
 			inStream.readExpected(fe.sha256, SHA256_DIGEST_LENGTH);
 			fe.blockIndex = inStream.readType<uint32_t>();
+			mFiles[indexToString(fe.pathIndex)] = fe;
 		}
 	}
 	
@@ -136,11 +137,11 @@ namespace Nebula
 
 		// file size, string table size, and block count
 		outStream.writeType<uint32_t>(mFiles.size());
-		outStream.writeType<uint32_t>((mStringTable.size() + 3) / 4); // string size is / 4
+		outStream.writeType<uint32_t>((mStringBuffer.size() + 3) / 4); // string size is / 4
 		outStream.writeType<uint32_t>(mBlockHashes.size());
 		
 		// string table
-		outStream.write(&mStringTable[0], (mStringTable.size() + 3) & ~3);
+		outStream.write(&mStringBuffer[0], (mStringBuffer.size() + 3) & ~3);
 		
 		// block hashes
 		for(int i = 0; i < mBlockHashes.size(); ++i) {
