@@ -238,45 +238,10 @@ namespace Nebula
 			return;
 		}
 		
-		TempFileStream uploadStream;
-		EncryptedOutputStream encStream(uploadStream, EVP_aes_256_cbc(), mEncKey);
 		MemoryInputStream blockStream(block, size);
-
-		// compress
-		LZMAUtils::compress(blockStream, encStream, nullptr);
-		encStream.close();
-
-
-		auto dataStream = uploadStream.inputStream();
-		if(!dataStream->canRewind()) {
-			throw InvalidArgumentException("This should not happen.");
-		}
-
-		// HMAC the encrypted data, the HMAC is stored at the beginning of the encrypted data stream
-		uint8_t hmac[SHA256_DIGEST_LENGTH];
-		HMAC_CTX hctx;
-		HMAC_CTX_init(&hctx);
-		scopedExit([&hctx] { HMAC_CTX_cleanup(&hctx); });
+		auto encryptedStream = StreamUtils::compressEncryptHMAC(EVP_aes_256_cbc(), mEncKey, mMacKey, blockStream);
 		
-		if(!HMAC_Init(&hctx, mMacKey, SHA256_DIGEST_LENGTH, EVP_sha256())) {
-			throw EncryptionFailedException("Failed to initialize HMAC.");
-		}
-		uint8_t buffer[8192];
-		size_t n;
-		while((n = dataStream->read(buffer, sizeof(buffer))) > 0) {
-			if(!HMAC_Update(&hctx, buffer, n)) {
-				throw EncryptionFailedException("Failed to update HMAC.");
-			}
-		}
-		if(!HMAC_Final(&hctx, hmac, nullptr)) {
-			throw EncryptionFailedException("Failed to compute HMAC.");
-		}
-
-		dataStream->rewind();
-
-		MemoryInputStream hmacStream(hmac, sizeof(hmac));
-		MultiInputStream hmacCryptoStream{&hmacStream, dataStream.get()};
-		mDataStore->put(uploadPath.c_str(), hmacCryptoStream);
+		mDataStore->put(uploadPath.c_str(), *encryptedStream);
 	}
 
 	void Repository::uploadFile(Snapshot *snapshot, const char *destPath, FileStream& fileStream, ProgressFunction progress)
@@ -382,62 +347,14 @@ namespace Nebula
 		const Snapshot::BlockHash *blockHashes = snapshot->indexToBlockHash(fe->blockIndex);
 		for(int i = 0; i < fe->numBlocks; ++i) {
 			std::string objectPath = "/data/" + hmac256ToString(blockHashes[i].hmac256);
-			
-			filesystem::path tmpPath = filesystem::unique_path();
-			scopedExit([tmpPath] { filesystem::remove(tmpPath); });
 
 			// download the object to tmpFile
-			FileStream tmpStream(tmpPath.c_str(), FileMode::Write);
+			TempFileStream tmpStream;
 			if(!mDataStore->get(objectPath.c_str(), tmpStream)) {
 				throw FileNotFoundException("Missing block from repository. Corrupted repository?");
 			}
-			tmpStream.close();
 
-			// read the HMAC
-			FileStream tmpInStream(tmpPath.c_str(), FileMode::Read);
-			uint8_t hmac[SHA256_DIGEST_LENGTH];
-			if(tmpInStream.read(hmac, sizeof(hmac)) != sizeof(hmac)) {
-				throw FileIOException("Failed to decrypt file.");
-			}
-			
-			uint8_t buffer[8192];
-			size_t n;
-
-			// first pass: verify HMAC
-			{
-				HMAC_CTX hctx;
-				HMAC_CTX_init(&hctx);
-				scopedExit([&hctx] { HMAC_CTX_cleanup(&hctx); });
-
-				if(!HMAC_Init(&hctx, mMacKey, SHA256_DIGEST_LENGTH, EVP_sha256())) {
-					throw VerificationFailedException("Failed to verify data block.");
-				}
-				
-				while((n = tmpInStream.read(buffer, sizeof(buffer))) > 0) {
-					if(!HMAC_Update(&hctx, buffer, n)) {
-						throw VerificationFailedException("Failed to verify data block.");
-					}
-				}
-				
-				uint8_t fileHmac[SHA256_DIGEST_LENGTH];
-				if(!HMAC_Final(&hctx, fileHmac, nullptr)) {
-					throw VerificationFailedException("Failed to verify data block.");
-				}
-				
-				if(memcmp(fileHmac, hmac, SHA256_DIGEST_LENGTH) != 0) {
-					throw VerificationFailedException("Failed to verify data block.");
-				}
-				
-				tmpInStream.seek(SHA256_DIGEST_LENGTH);
-			}
-			
-			// second pass: decrypt and uncompress
-			DecryptedInputStream decStream(tmpInStream, EVP_aes_256_cbc(), mEncKey);
-			LZMAInputStream lzStream(decStream);
-
-			while((n = lzStream.read(buffer, sizeof(buffer))) > 0) {
-				fileStream.write(buffer, n);
-			}
+			StreamUtils::decompressDecryptHMAC(EVP_aes_256_cbc(), mEncKey, mMacKey, *tmpStream.inputStream(), fileStream);
 		}
 		
 		return true;
