@@ -44,7 +44,9 @@ public: \
 	DEFINE_EXCEPTION(VerificationFailedException);
 	DEFINE_EXCEPTION(ShortReadException);
 	DEFINE_EXCEPTION(InvalidFormatException);
-	
+	DEFINE_EXCEPTION(InitializationException);
+	DEFINE_EXCEPTION(ConnectionException);
+
 #undef DEFINE_EXCEPTION
 
 }

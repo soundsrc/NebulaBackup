@@ -1,6 +1,8 @@
 
 function nebula_common_includes()
 	includedirs {
+		"thirdparty/libssh",
+		"thirdparty/libssh/include",
 		"thirdparty/libressl/include",
 		"thirdparty/boost",
 		"thirdparty/lzma/C"
@@ -32,7 +34,7 @@ solution "NebulaBackup"
 			"libnebula/**.cpp" 
 		}
 
-		links { "ssl", "crypto", "boostfilesystem", "lzma" }
+		links { "ssh", "ssl", "crypto", "boostfilesystem", "lzma" }
 
 	project "NebulaBackup-cli"
 		kind "ConsoleApp"
@@ -101,6 +103,10 @@ solution "NebulaBackup"
 			"thirdparty/libressl/crypto/modes",
 			"thirdparty/libressl/include",
 			"thirdparty/libressl/include/compat"
+		}
+
+		defines {
+			"OPENSSL_NO_STATIC_ENGINE"
 		}
 
 		if os.is("macosx") then
@@ -739,3 +745,17 @@ solution "NebulaBackup"
 			"thirdparty/lzma/C/Threads.c",
 		}
 
+	project "ssh"
+		language "C"
+		kind "StaticLib"
+		includedirs {
+			"thirdparty/libssh",
+			"thirdparty/libssh/include",
+			"thirdparty/libressl/include"
+		}
+		files {
+			"thirdparty/libssh/include/libssh/*.h",
+			"thirdparty/libssh/src/*.c",
+			"thirdparty/libssh/src/external/*.c",
+			"thirdparty/libssh/src/threads/*.c"
+		}
