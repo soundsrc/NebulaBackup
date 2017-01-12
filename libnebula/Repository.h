@@ -56,7 +56,7 @@ namespace Nebula
 		 * Returns true if the supplied password is able to unlock the
 		 * correct.
 		 */
-		bool unlockRepository(const char *password);
+		bool unlockRepository(const char *password, ProgressFunction progress = DefaultProgressFunction);
 
 		/**
 		 * Compacts a repository.

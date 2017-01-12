@@ -126,11 +126,11 @@ namespace Nebula
 		mDataStore->put("/key", *keyStream.inputStream(), progress);
 	}
 	
-	bool Repository::unlockRepository(const char *password)
+	bool Repository::unlockRepository(const char *password, ProgressFunction progress)
 	{
 		TempFileStream keyStream;
 		
-		mDataStore->get("/key", keyStream);
+		mDataStore->get("/key", keyStream, progress);
 
 		auto stream = keyStream.inputStream();
 
@@ -204,7 +204,7 @@ namespace Nebula
 		std::unique_ptr<Snapshot> snapshot(new Snapshot());
 		
 		TempFileStream tmpSnapshotStream;
-		mDataStore->get((std::string("/snapshot/") + name).c_str(), tmpSnapshotStream);
+		mDataStore->get((std::string("/snapshot/") + name).c_str(), tmpSnapshotStream, progress);
 		
 		TempFileStream snapshotStream;
 		StreamUtils::decompressDecryptHMAC(EVP_aes_256_cbc(), mEncKey, mMacKey, *tmpSnapshotStream.inputStream(), snapshotStream);
@@ -218,7 +218,7 @@ namespace Nebula
 		TempFileStream tmpStream;
 		snapshot->save(tmpStream);
 		auto snapshotStream = StreamUtils::compressEncryptHMAC(EVP_aes_256_cbc(), mEncKey, mMacKey, *tmpStream.inputStream());
-		mDataStore->put((std::string("/snapshot/") + name).c_str(), *snapshotStream);
+		mDataStore->put((std::string("/snapshot/") + name).c_str(), *snapshotStream, progress);
 	}
 	
 	void Repository::compressEncryptAndUploadBlock(const uint8_t *block, size_t size, uint8_t *outhmac, ProgressFunction progress)
@@ -237,7 +237,7 @@ namespace Nebula
 		MemoryInputStream blockStream(block, size);
 		auto encryptedStream = StreamUtils::compressEncryptHMAC(EVP_aes_256_cbc(), mEncKey, mMacKey, blockStream);
 		
-		mDataStore->put(uploadPath.c_str(), *encryptedStream);
+		mDataStore->put(uploadPath.c_str(), *encryptedStream, progress);
 	}
 
 	void Repository::uploadFile(Snapshot *snapshot, const char *destPath, FileStream& fileStream, ProgressFunction progress)
