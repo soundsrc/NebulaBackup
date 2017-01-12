@@ -165,15 +165,15 @@ TEST(RepositoryTests, SnapshotTest)
 		fout.close();
 		
 		FileStream fin(tmpFile.c_str(), FileMode::Read);
-		repo.uploadFile(snapshot.get(), "/file1", fin, nullptr);
+		repo.uploadFile(snapshot.get(), "/file1", fin, DefaultProgressFunction);
 		fin.rewind();
-		repo.uploadFile(snapshot.get(), "/file2", fin, nullptr);
+		repo.uploadFile(snapshot.get(), "/file2", fin, DefaultProgressFunction);
 		fin.rewind();
-		repo.uploadFile(snapshot.get(), "/file3", fin, nullptr);
+		repo.uploadFile(snapshot.get(), "/file3", fin, DefaultProgressFunction);
 		
 		EXPECT_NO_THROW(repo.commitSnapshot(snapshot.get(), "test-snapshot"));
 		
-		std::unique_ptr<Snapshot> loadedSnapshot (repo.loadSnapshot("test-snapshot", nullptr));
+		std::unique_ptr<Snapshot> loadedSnapshot (repo.loadSnapshot("test-snapshot", DefaultProgressFunction));
 		EXPECT_TRUE(loadedSnapshot->getFileEntry("/file1"));
 		EXPECT_TRUE(loadedSnapshot->getFileEntry("/file2"));
 		EXPECT_TRUE(loadedSnapshot->getFileEntry("/file3"));
