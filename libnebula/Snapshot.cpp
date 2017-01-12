@@ -87,6 +87,24 @@ namespace Nebula
 		return &f->second;
 	}
 	
+	void Snapshot::forEachFileEntry(void (*callback)(const FileEntry&))
+	{
+		std::lock_guard<std::mutex> lock(mMutex);
+		for(auto fe : mFiles) {
+			callback(fe.second);
+		}
+	}
+	
+	void Snapshot::deleteFileEntry(const char *path)
+	{
+		std::lock_guard<std::mutex> lock(mMutex);
+
+		auto entry = mFiles.find(path);
+		if(entry != mFiles.end()) {
+			mFiles.erase(entry);
+		}
+	}
+	
 	void Snapshot::load(InputStream& inStream)
 	{
 		std::lock_guard<std::mutex> lock(mMutex);

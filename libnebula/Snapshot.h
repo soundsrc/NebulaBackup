@@ -78,8 +78,10 @@ namespace Nebula
 		
 		const FileEntry *getFileEntry(const char *path);
 	
-		//void listFileEntries();
-		//void deleteFileEntry(const char *path);
+
+		void forEachFileEntry(void (*callback)(const FileEntry&));
+
+		void deleteFileEntry(const char *path);
 		
 		void save(OutputStream& outStream);
 		void load(InputStream& inStream);
