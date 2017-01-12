@@ -50,7 +50,7 @@ TEST(DataStoreTests, PutAndGet) {
 		EXPECT_NO_THROW(ds.put("/dddddd", dataStream));
 
 		MemoryOutputStream outStream(data2, sizeof(data2));
-		EXPECT_TRUE(ds.get("/dddddd", outStream));
+		EXPECT_NO_THROW(ds.get("/dddddd", outStream));
 		
 		EXPECT_TRUE(memcmp(data1, data2, sizeof(data1)) == 0);
 	}
@@ -81,7 +81,7 @@ TEST(DataStoreTests, PutAndGetWithSubPaths) {
 		EXPECT_NO_THROW(ds.put("/subpath/dddddd", dataStream));
 
 		MemoryOutputStream outStream(data2, sizeof(data2));
-		EXPECT_TRUE(ds.get("/subpath/dddddd", outStream));
+		EXPECT_NO_THROW(ds.get("/subpath/dddddd", outStream));
 		
 		EXPECT_TRUE(memcmp(data1, data2, sizeof(data1)) == 0);
 	}
@@ -127,7 +127,7 @@ TEST(DataStoreTests, GetNotFound) {
 		uint8_t data[12];
 		
 		MemoryOutputStream outStream(data, sizeof(data));
-		EXPECT_FALSE(ds.get("/notfound", outStream));
+		EXPECT_THROW(ds.get("/notfound", outStream), FileNotFoundException);
 	}
 }
 

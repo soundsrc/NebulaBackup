@@ -43,7 +43,7 @@ namespace Nebula
 		 * @param stream Output stream
 		 * @returns False if the object was not found at the path, true otherwise
 		 */
-		virtual bool get(const char *path, OutputStream& stream, ProgressFunction progress = DefaultProgressFunction) = 0;
+		virtual void get(const char *path, OutputStream& stream, ProgressFunction progress = DefaultProgressFunction) = 0;
 		
 		/**
 		 * Writes a file to the data store given the supplied data stream

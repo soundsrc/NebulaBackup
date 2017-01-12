@@ -36,13 +36,13 @@ namespace Nebula
 	bool FileDataStore::exist(const char *path, ProgressFunction progress)
 	{
 		using namespace boost;
-		if(progress) progress(1, 1);
+		progress(1, 1);
 		
 		filesystem::path fullPath = filesystem::path(mStoreDirectory) / path;
 		return filesystem::exists(fullPath);
 	}
 
-	bool FileDataStore::get(const char *path, OutputStream& stream, ProgressFunction progress)
+	void FileDataStore::get(const char *path, OutputStream& stream, ProgressFunction progress)
 	{
 		using namespace boost;
 		
@@ -51,7 +51,7 @@ namespace Nebula
 		FILE *fp = fopen(fullPath.c_str(), "rb");
 		if(!fp) {
 			switch(errno) {
-				case ENOENT: return false;
+				case ENOENT: throw FileNotFoundException(fullPath.string() + ": File not found."); break;
 				default: throw FileIOException(fullPath.string() + ": " + strerror(errno)); break;
 			}
 		}
@@ -81,8 +81,6 @@ namespace Nebula
 		}
 
 		progress(fileSize, fileSize);
-
-		return true;
 	}
 	
 	void FileDataStore::put(const char *path, InputStream& stream, ProgressFunction progress)

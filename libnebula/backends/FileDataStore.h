@@ -28,7 +28,7 @@ namespace Nebula
 		FileDataStore(const char *storeDirectory);
 
 		virtual bool exist(const char *path, ProgressFunction progress = DefaultProgressFunction) override;
-		virtual bool get(const char *path, OutputStream& stream, ProgressFunction progress = DefaultProgressFunction) override;
+		virtual void get(const char *path, OutputStream& stream, ProgressFunction progress = DefaultProgressFunction) override;
 		virtual void put(const char *path, InputStream& stream, ProgressFunction progress = DefaultProgressFunction) override;
 		virtual void list(const char *path, std::function<void (const char *, void *)> listCallback, void *userData, ProgressFunction progress = DefaultProgressFunction) override;
 		virtual bool unlink(const char *path, ProgressFunction progress = DefaultProgressFunction) override;

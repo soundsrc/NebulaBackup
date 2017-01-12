@@ -73,7 +73,7 @@ namespace Nebula
 		}
 	};
 	
-	void Repository::initializeRepository(const char *password, int rounds)
+	void Repository::initializeRepository(const char *password, int rounds, ProgressFunction progress)
 	{
 		// derive key from password
 		ZeroedArray<uint8_t, EVP_MAX_MD_SIZE> derivedKey;
@@ -123,17 +123,15 @@ namespace Nebula
 		keyStream.write(hmac, sizeof(hmac));
 		keyStream.close();
 
-		mDataStore->put("/key", *keyStream.inputStream());
+		mDataStore->put("/key", *keyStream.inputStream(), progress);
 	}
 	
 	bool Repository::unlockRepository(const char *password)
 	{
 		TempFileStream keyStream;
 		
-		if(!mDataStore->get("/key", keyStream)) {
-			throw InvalidRepositoryException("Repository does not exist at this path.");
-		}
-		
+		mDataStore->get("/key", keyStream);
+
 		auto stream = keyStream.inputStream();
 
 		char magic[12];
@@ -206,9 +204,7 @@ namespace Nebula
 		std::unique_ptr<Snapshot> snapshot(new Snapshot());
 		
 		TempFileStream tmpSnapshotStream;
-		if(!mDataStore->get((std::string("/snapshot/") + name).c_str(), tmpSnapshotStream)) {
-			return nullptr;
-		}
+		mDataStore->get((std::string("/snapshot/") + name).c_str(), tmpSnapshotStream);
 		
 		TempFileStream snapshotStream;
 		StreamUtils::decompressDecryptHMAC(EVP_aes_256_cbc(), mEncKey, mMacKey, *tmpSnapshotStream.inputStream(), snapshotStream);
@@ -350,9 +346,7 @@ namespace Nebula
 
 			// download the object to tmpFile
 			TempFileStream tmpStream;
-			if(!mDataStore->get(objectPath.c_str(), tmpStream)) {
-				throw FileNotFoundException("Missing block from repository. Corrupted repository?");
-			}
+			mDataStore->get(objectPath.c_str(), tmpStream);
 
 			StreamUtils::decompressDecryptHMAC(EVP_aes_256_cbc(), mEncKey, mMacKey, *tmpStream.inputStream(), fileStream);
 		}
