@@ -20,7 +20,7 @@
 
 namespace Nebula
 {
-	typedef bool (*ProgressFunction)(long, long);
+	typedef const std::function<bool (long, long)>& ProgressFunction;
 	
 	inline bool DefaultProgressFunction(long, long) { return true; }
 }
