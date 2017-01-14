@@ -128,7 +128,6 @@ target_include_directories(lzma PUBLIC
 )
 
 add_library(Nebula SHARED 
-	"libnebula/AsyncProgress.h"
 	"libnebula/BufferedInputStream.cpp"
 	"libnebula/BufferedInputStream.h"
 	"libnebula/DataStore.h"
