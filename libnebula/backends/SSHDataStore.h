@@ -19,8 +19,8 @@
 #include <boost/filesystem.hpp>
 #include <libssh/libssh.h>
 #include <libssh/sftp.h>
-#include "ZeroedString.h"
-#include "DataStore.h"
+#include "libnebula/ZeroedString.h"
+#include "libnebula/DataStore.h"
 
 namespace Nebula
 {

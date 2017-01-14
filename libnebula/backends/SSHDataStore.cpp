@@ -19,11 +19,11 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <errno.h>
-#include "Exception.h"
+#include "libnebula/Exception.h"
 #include <libssh/libssh.h>
 #include <libssh/sftp.h>
-#include "InputStream.h"
-#include "OutputStream.h"
+#include "libnebula/InputStream.h"
+#include "libnebula/OutputStream.h"
 #include "SSHDataStore.h"
 
 namespace Nebula

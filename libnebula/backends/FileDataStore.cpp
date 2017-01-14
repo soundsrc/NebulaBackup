@@ -19,11 +19,11 @@
 #include <stdio.h>
 #include <errno.h>
 #include <boost/filesystem.hpp>
-#include "OutputStream.h"
-#include "InputStream.h"
-#include "DataStore.h"
-#include "Exception.h"
-#include "ScopedExit.h"
+#include "libnebula/OutputStream.h"
+#include "libnebula/InputStream.h"
+#include "libnebula/DataStore.h"
+#include "libnebula/Exception.h"
+#include "libnebula/ScopedExit.h"
 #include "FileDataStore.h"
 
 namespace Nebula
