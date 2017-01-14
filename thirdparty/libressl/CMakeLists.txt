@@ -49,7 +49,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "MINGW")
 	set(BUILD_NC false)
 endif()
 
-if(WIN32)
+if(MSVC)
 	set(BUILD_NC false)
 endif()
 
@@ -80,17 +80,14 @@ if (CMAKE_COMPILER_IS_GNUCC OR CMAKE_C_COMPILER_ID MATCHES "Clang")
 	add_definitions(-Wno-pointer-sign)
 endif()
 
-if(WIN32)
+if(MSVC)
+	add_definitions(-Dinline=__inline)
 	add_definitions(-Drestrict)
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 	add_definitions(-D_CRT_DEPRECATED_NO_WARNINGS)
 	add_definitions(-D_REENTRANT -D_POSIX_THREAD_SAFE_FUNCTIONS)
 	add_definitions(-DWIN32_LEAN_AND_MEAN -D_WIN32_WINNT=0x0501)
 	add_definitions(-DCPPFLAGS -DOPENSSL_NO_SPEED -DNO_SYSLOG -DNO_CRYPT)
-endif()
-
-if(MSVC)
-	add_definitions(-Dinline=__inline)
 
 	set(MSVC_DISABLED_WARNINGS_LIST
 		"C4057" # C4057: 'initializing' : 'unsigned char *' differs in
@@ -146,7 +143,7 @@ if(HAVE_STRNDUP)
 	add_definitions(-DHAVE_STRNDUP)
 endif()
 
-if(WIN32)
+if(MSVC)
 	set(HAVE_STRNLEN true)
 	add_definitions(-DHAVE_STRNLEN)
 else()
@@ -240,7 +237,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "SunOS")
 	set(OPENSSL_LIBS ${OPENSSL_LIBS} nsl socket)
 endif()
 
-if(NOT (CMAKE_SYSTEM_NAME MATCHES "(Darwin|CYGWIN)"))
+if(NOT (CMAKE_SYSTEM_NAME MATCHES "(Darwin|MINGW|CYGWIN)" OR MSVC))
 	set(BUILD_SHARED true)
 endif()
 

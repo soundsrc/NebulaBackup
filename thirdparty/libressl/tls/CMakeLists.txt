@@ -7,7 +7,6 @@ include_directories(
 set(
 	TLS_SRC
 	tls.c
-	tls_bio_cb.c
 	tls_client.c
 	tls_config.c
 	tls_conninfo.c
@@ -32,12 +31,10 @@ if (BUILD_SHARED)
 	add_library(tls-objects OBJECT ${TLS_SRC})
 	add_library(tls STATIC $<TARGET_OBJECTS:tls-objects>)
 	add_library(tls-shared SHARED $<TARGET_OBJECTS:tls-objects>)
-	if (WIN32)
+	if (MSVC)
 		target_link_libraries(tls-shared ssl-shared crypto-shared Ws2_32.lib)
-		set(TLS_POSTFIX -${TLS_MAJOR_VERSION})
 	endif()
-	set_target_properties(tls-shared PROPERTIES
-		OUTPUT_NAME tls${TLS_POSTFIX} ARCHIVE_OUTPUT_NAME tls)
+	set_target_properties(tls-shared PROPERTIES OUTPUT_NAME tls)
 	set_target_properties(tls-shared PROPERTIES VERSION ${TLS_VERSION}
 		SOVERSION ${TLS_MAJOR_VERSION})
 	install(TARGETS tls tls-shared DESTINATION lib)

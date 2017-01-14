@@ -19,7 +19,6 @@ endif
 
 libtls_la_SOURCES = tls.c
 libtls_la_SOURCES += tls_client.c
-libtls_la_SOURCES += tls_bio_cb.c
 libtls_la_SOURCES += tls_config.c
 libtls_la_SOURCES += tls_conninfo.c
 libtls_la_SOURCES += tls_server.c

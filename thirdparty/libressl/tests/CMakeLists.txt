@@ -9,8 +9,6 @@ include_directories(
 	../apps/openssl/compat
 )
 
-add_definitions(-D_PATH_SSL_CA_FILE=\"${CMAKE_CURRENT_SOURCE_DIR}/../apps/openssl/cert.pem\")
-
 # aeadtest
 add_executable(aeadtest aeadtest.c)
 target_link_libraries(aeadtest ${OPENSSL_LIBS})
@@ -198,9 +196,15 @@ add_test(mont mont)
 
 # ocsp_test
 if(ENABLE_EXTRATESTS)
+	if(NOT "${OPENSSLDIR}" STREQUAL "")
+		add_definitions(-D_PATH_SSL_CA_FILE=\"${OPENSSLDIR}/cert.pem\")
+	else()
+		add_definitions(-D_PATH_SSL_CA_FILE=\"${CMAKE_INSTALL_PREFIX}/etc/ssl/cert.pem\")
+	endif()
 	add_executable(ocsp_test ocsp_test.c)
 	target_link_libraries(ocsp_test ${OPENSSL_LIBS})
 	add_test(ocsptest ${CMAKE_CURRENT_SOURCE_DIR}/ocsptest.sh)
+	set_tests_properties(ocsptest PROPERTIES ENVIRONMENT "srcdir=${CMAKE_CURRENT_SOURCE_DIR}")
 endif()
 
 # optionstest
@@ -304,11 +308,6 @@ set_tests_properties(testrsa PROPERTIES ENVIRONMENT "srcdir=${CMAKE_CURRENT_SOUR
 add_executable(timingsafe timingsafe.c)
 target_link_libraries(timingsafe ${OPENSSL_LIBS})
 add_test(timingsafe timingsafe)
-
-# tls_ext_alpn
-add_executable(tls_ext_alpn tls_ext_alpn.c)
-target_link_libraries(tls_ext_alpn ${OPENSSL_LIBS})
-add_test(tls_ext_alpn tls_ext_alpn)
 
 # utf8test
 add_executable(utf8test utf8test.c)

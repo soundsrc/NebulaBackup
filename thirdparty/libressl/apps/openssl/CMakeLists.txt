@@ -10,6 +10,7 @@ set(
 	asn1pars.c
 	ca.c
 	ciphers.c
+	cms.c
 	crl.c
 	crl2p7.c
 	dgst.c
