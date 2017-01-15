@@ -195,11 +195,7 @@ target_include_directories(NebulaBackup PUBLIC
 )
 
 target_link_libraries(NebulaBackup PUBLIC
-	"boostfilesystem"
-	"lzma"
-	"ssl"
-	"crypto"
-	"ssh_shared"
+	${NEBULA_BACKUP_LIBS}
 )
 
 add_executable(NebulaBackupTests
