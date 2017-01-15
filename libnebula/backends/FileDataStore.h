@@ -17,6 +17,7 @@
 #pragma once
 
 #include <string>
+#include <boost/filesystem.hpp>
 #include "libnebula/DataStore.h"
 #include "libnebula/ProgressFunction.h"
 
@@ -25,7 +26,7 @@ namespace Nebula
 	class FileDataStore : public DataStore
 	{
 	public:
-		FileDataStore(const char *storeDirectory);
+		FileDataStore(const boost::filesystem::path& storeDirectory);
 
 		virtual bool exist(const char *path, ProgressFunction progress = DefaultProgressFunction) override;
 		virtual void get(const char *path, OutputStream& stream, ProgressFunction progress = DefaultProgressFunction) override;
@@ -33,6 +34,6 @@ namespace Nebula
 		virtual void list(const char *path, std::function<void (const char *, void *)> listCallback, void *userData, ProgressFunction progress = DefaultProgressFunction) override;
 		virtual bool unlink(const char *path, ProgressFunction progress = DefaultProgressFunction) override;
 	private:
-		std::string mStoreDirectory;
+		boost::filesystem::path mStoreDirectory;
 	};
 }

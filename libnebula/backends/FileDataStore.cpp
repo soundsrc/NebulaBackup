@@ -28,9 +28,9 @@
 
 namespace Nebula
 {
-	FileDataStore::FileDataStore(const char *storeDirectory)
+	FileDataStore::FileDataStore(const boost::filesystem::path& storeDirectory)
+	: mStoreDirectory (storeDirectory)
 	{
-		mStoreDirectory = storeDirectory;
 	}
 	
 	bool FileDataStore::exist(const char *path, ProgressFunction progress)
@@ -38,7 +38,7 @@ namespace Nebula
 		using namespace boost;
 		progress(1, 1);
 		
-		filesystem::path fullPath = filesystem::path(mStoreDirectory) / path;
+		filesystem::path fullPath = mStoreDirectory / path;
 		return filesystem::exists(fullPath);
 	}
 
@@ -46,7 +46,7 @@ namespace Nebula
 	{
 		using namespace boost;
 		
-		filesystem::path fullPath = filesystem::path(mStoreDirectory) / path;
+		filesystem::path fullPath = mStoreDirectory / path;
 		
 		FILE *fp = fopen(fullPath.c_str(), "rb");
 		if(!fp) {
@@ -87,7 +87,7 @@ namespace Nebula
 	{
 		using namespace boost;
 
-		filesystem::path fullPath = filesystem::path(mStoreDirectory) / path;
+		filesystem::path fullPath = mStoreDirectory / path;
 
 		if(!filesystem::exists(fullPath.parent_path()))
 		{
@@ -127,7 +127,7 @@ namespace Nebula
 	void FileDataStore::list(const char *path, std::function<void (const char *, void *)> listCallback, void *userData, ProgressFunction progress)
 	{
 		using namespace boost;
-		filesystem::path fullPath = filesystem::path(mStoreDirectory) / path;
+		filesystem::path fullPath = mStoreDirectory / path;
 
 		filesystem::recursive_directory_iterator dirIterator(fullPath);
 
@@ -148,7 +148,7 @@ namespace Nebula
 		using namespace boost;
 
 		
-		filesystem::path fullPath = filesystem::path(mStoreDirectory) / path;
+		filesystem::path fullPath = mStoreDirectory / path;
 		if(!filesystem::remove(fullPath)) {
 			return false;
 		} else {
