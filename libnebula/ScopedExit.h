@@ -61,6 +61,6 @@ namespace Nebula
 #define SCOPED_EXIT_STR_CAT(x, y) x ## y
 #define SCOPED_EXIT_UNIQUE_VAR(lineNo) SCOPED_EXIT_STR_CAT(__xx_scopedExitVar_, lineNo)
 
-#define scopedExit(lambda) auto SCOPED_EXIT_UNIQUE_VAR(__LINE__) = makeScopedExit(lambda)
+#define scopedExit(lambda) auto SCOPED_EXIT_UNIQUE_VAR(__LINE__) = ::Nebula::makeScopedExit(lambda)
 
 }
