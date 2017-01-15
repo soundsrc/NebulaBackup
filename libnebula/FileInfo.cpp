@@ -13,6 +13,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+#include "FileInfo.h"
 #ifndef _WIN32
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -21,7 +22,6 @@
 #endif
 #include <boost/filesystem.hpp>
 #include "Exception.h"
-#include "FileInfo.h"
 
 namespace Nebula
 {

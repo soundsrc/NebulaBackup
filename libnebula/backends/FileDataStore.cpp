@@ -13,18 +13,19 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+#include "FileDataStore.h"
+#include <stdio.h>
+#include <errno.h>
 #include <string>
 #include <memory>
 #include <future>
-#include <stdio.h>
-#include <errno.h>
 #include <boost/filesystem.hpp>
 #include "libnebula/OutputStream.h"
 #include "libnebula/InputStream.h"
 #include "libnebula/DataStore.h"
 #include "libnebula/Exception.h"
 #include "libnebula/ScopedExit.h"
-#include "FileDataStore.h"
+
 
 namespace Nebula
 {

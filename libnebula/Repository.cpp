@@ -13,9 +13,10 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-#include <string>
+#include "Repository.h"
 #include <stdlib.h>
 #include <math.h>
+#include <string>
 #include <boost/filesystem.hpp>
 #include <openssl/evp.h>
 #include <openssl/sha.h>
@@ -41,7 +42,6 @@ extern "C" {
 #include "MemoryInputStream.h"
 #include "LZMAUtils.h"
 #include "StreamUtils.h"
-#include "Repository.h"
 
 namespace Nebula
 {

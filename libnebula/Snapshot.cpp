@@ -13,11 +13,12 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-#include <memory>
-#include <mutex>
+#include "Snapshot.h"
 #include <math.h>
 #include <ctype.h>
 #include <stdint.h>
+#include <memory>
+#include <mutex>
 #include <boost/filesystem.hpp>
 #include <openssl/hmac.h>
 #include <openssl/sha.h>
@@ -34,7 +35,6 @@
 #include "EncryptedOutputStream.h"
 #include "ScopedExit.h"
 #include "RollingHash.h"
-#include "Snapshot.h"
 
 namespace Nebula
 {

@@ -14,12 +14,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "RollingHash.h"
 #include <stdint.h>
 #include <string.h>
 #include <openssl/evp.h>
 #include "ScopedExit.h"
 #include "Exception.h"
-#include "RollingHash.h"
 
 namespace Nebula
 {

@@ -13,6 +13,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+#include "LZMAUtils.h"
 #include <stdlib.h>
 #include "Lzma2Enc.h"
 #include "Lzma2Dec.h"
@@ -20,7 +21,6 @@
 #include "ScopedExit.h"
 #include "InputStream.h"
 #include "OutputStream.h"
-#include "LZMAUtils.h"
 
 namespace Nebula
 {

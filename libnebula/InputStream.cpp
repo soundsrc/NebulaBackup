@@ -13,11 +13,11 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+#include "InputStream.h"
 #include <stdint.h>
 #include <strstream>
 #include "Exception.h"
 #include "OutputStream.h"
-#include "InputStream.h"
 
 namespace Nebula
 {

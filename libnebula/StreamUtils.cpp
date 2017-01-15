@@ -13,6 +13,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+#include "StreamUtils.h"
 #include <openssl/hmac.h>
 #include <openssl/sha.h>
 #include "ScopedExit.h"
@@ -23,7 +24,6 @@
 #include "EncryptedOutputStream.h"
 #include "DecryptedInputStream.h"
 #include "MemoryInputStream.h"
-#include "StreamUtils.h"
 
 namespace Nebula
 {

@@ -14,10 +14,10 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "EncryptedOutputStream.h"
 #include <openssl/evp.h>
 #include "ZeroedArray.h"
 #include "Exception.h"
-#include "EncryptedOutputStream.h"
 
 namespace Nebula
 {

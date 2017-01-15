@@ -13,18 +13,18 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-#include <memory>
-#include <type_traits>
+#include "SSHDataStore.h"
 #include <stdio.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <memory>
+#include <type_traits>
 #include "libnebula/Exception.h"
 #include <libssh/libssh.h>
 #include <libssh/sftp.h>
 #include "libnebula/InputStream.h"
 #include "libnebula/OutputStream.h"
-#include "SSHDataStore.h"
 
 namespace Nebula
 {
