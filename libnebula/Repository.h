@@ -73,6 +73,11 @@ namespace Nebula
 		bool changePassword(const char *oldPassword, const char *newPassword);
 
 		/**
+		 * Lists available snapshots in the repository
+		 */
+		void listSnapshots(const std::function<void (const char *)>& callback, ProgressFunction progress = DefaultProgressFunction);
+
+		/**
 		 * Creates a new snapshot. A snapshot is a collection of file.
 		 */
 		Snapshot *createSnapshot();
@@ -83,12 +88,6 @@ namespace Nebula
 		 */
 		Snapshot *loadSnapshot(const char *name, ProgressFunction progress = DefaultProgressFunction);
 
-		/**
-		 * Lists the files in the snapshot.
-		 * The callback function is invoked for each file.
-		 */
-		void listFiles(Snapshot *snapshot, const std::function<void (const char *, void *)>& listCallback, void *userData = nullptr, ProgressFunction progress = DefaultProgressFunction);
-		
 		/**
 		 * Uploads a file to the repository. Adds the entry to the snapshot.
 		 * Until a snapshot is committed, it is loose file which may be

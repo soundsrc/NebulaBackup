@@ -193,6 +193,10 @@ namespace Nebula
 		return true;
 	}
 	
+	void Repository::listSnapshots(const std::function<void (const char *)>& callback, ProgressFunction progress)
+	{
+		mDataStore->list("/snapshot", [&callback](const char *snapshot, void *) { callback(snapshot); }, nullptr, progress);
+	}
 	
 	Snapshot *Repository::createSnapshot()
 	{
