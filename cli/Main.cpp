@@ -211,7 +211,27 @@ static void backupFiles(const char *repository, const char *snapshotName, int ar
 	repo.commitSnapshot(snapshot.get(), snapshotName);
 }
 
-void listSnapshot(const char *repository, const char *snapshotName)
+static void listSnapshots(const char *repository)
+{
+	using namespace Nebula;
+	using namespace boost;
+	
+	auto dataStore = createDataStoreFromRepository(repository);
+	Repository repo(dataStore.get());
+	
+	ZeroedString password = promptReadPassword(false);
+	if(!repo.unlockRepository(password.c_str())) {
+		throw RepositoryException("Unable to unlock repository. Password was incorrect.");
+	}
+	
+	repo.listSnapshots([](const char *snapshotName) {
+		if(snapshotName) {
+			printf("%s\n", snapshotName);	
+		}
+	});
+}
+
+static void listSnapshot(const char *repository, const char *snapshotName)
 {
 	using namespace Nebula;
 	using namespace boost;
@@ -335,12 +355,10 @@ int main(int argc, char *argv[])
 				}
 				
 				if(optind + 3 > argc) {
-					fprintf(stderr, "error: A snapshot name must be specified.\n");
-					printHelp();
-					return -1;
+					listSnapshots(repo);
+				} else {
+					listSnapshot(repo, argv[optind + 2]);
 				}
-				
-				listSnapshot(repo, argv[optind + 2]);
 				break;
 		}
 	} catch(const std::exception& e) {
