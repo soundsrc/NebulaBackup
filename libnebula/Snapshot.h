@@ -79,7 +79,7 @@ namespace Nebula
 		const FileEntry *getFileEntry(const char *path);
 	
 
-		void forEachFileEntry(void (*callback)(const FileEntry&));
+		void forEachFileEntry(const std::function<void (const FileEntry&)>& callback);
 
 		void deleteFileEntry(const char *path);
 		

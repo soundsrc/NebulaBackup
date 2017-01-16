@@ -87,7 +87,7 @@ namespace Nebula
 		return &f->second;
 	}
 	
-	void Snapshot::forEachFileEntry(void (*callback)(const FileEntry&))
+	void Snapshot::forEachFileEntry(const std::function<void (const FileEntry&)>& callback)
 	{
 		std::lock_guard<std::mutex> lock(mMutex);
 		for(auto fe : mFiles) {

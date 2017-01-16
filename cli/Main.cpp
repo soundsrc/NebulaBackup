@@ -31,6 +31,7 @@
 #include "libnebula/backends/SshDataStore.h"
 #include "libnebula/FileStream.h"
 #include "libnebula/Exception.h"
+#include "libnebula/FileInfo.h"
 #include "libnebula/Repository.h"
 
 static void printHelp()
@@ -195,7 +196,7 @@ static void backupFiles(const char *repository, const char *snapshotName, int ar
 						printf("%s\n", file.path().c_str());
 					}
 					FileStream fs(file.path().c_str(), FileMode::Read);
-					repo.uploadFile(snapshot.get(), argv[i], fs);
+					repo.uploadFile(snapshot.get(), file.path().c_str(), fs);
 				}
 			}
 		} else {
@@ -208,6 +209,52 @@ static void backupFiles(const char *repository, const char *snapshotName, int ar
 	}
 	
 	repo.commitSnapshot(snapshot.get(), snapshotName);
+}
+
+void listSnapshot(const char *repository, const char *snapshotName)
+{
+	using namespace Nebula;
+	using namespace boost;
+	
+	auto dataStore = createDataStoreFromRepository(repository);
+	Repository repo(dataStore.get());
+	
+	ZeroedString password = promptReadPassword(false);
+	if(!repo.unlockRepository(password.c_str())) {
+		throw RepositoryException("Unable to unlock repository. Password was incorrect.");
+	}
+	
+	std::unique_ptr<Snapshot> snapshot(repo.loadSnapshot(snapshotName));
+	snapshot->forEachFileEntry([&snapshot] (const Snapshot::FileEntry &fe) {
+		const char *user = snapshot->indexToString(fe.userIndex);
+		const char *group = snapshot->indexToString(fe.groupIndex);
+		const char *path = snapshot->indexToString(fe.pathIndex);
+
+		char modeString[] = "----------";
+		switch((FileType)fe.type) {
+			case FileType::Directory: modeString[0] = 'd'; break;
+			case FileType::SymbolicLink: modeString[0] = 'l'; break;
+			case FileType::BlockDevice: modeString[0] = 'b'; break;
+			case FileType::CharacterDevice: modeString[0] = 'c'; break;
+			default: break;
+		}
+		if(fe.mode & 0400) modeString[1] = 'r';
+		if(fe.mode & 0200) modeString[2] = 'w';
+		if(fe.mode & 0100) modeString[3] = 'x';
+		if(fe.mode & 0040) modeString[4] = 'r';
+		if(fe.mode & 0020) modeString[5] = 'w';
+		if(fe.mode & 0010) modeString[6] = 'x';
+		if(fe.mode & 0004) modeString[7] = 'r';
+		if(fe.mode & 0002) modeString[8] = 'w';
+		if(fe.mode & 0001) modeString[9] = 'x';
+		
+		printf("%-11s %-8s %-8s %10llu %s\n",
+			   modeString,
+			   user,
+			   group,
+			   fe.size,
+			   path);
+	});
 }
 
 int main(int argc, char *argv[])
@@ -279,6 +326,21 @@ int main(int argc, char *argv[])
 				}
 				
 				backupFiles(repo, argv[optind + 2], argc - (optind + 3), argv + optind + 3);
+				break;
+			case 'l':
+				if(strcmp(action, "list") != 0) {
+					fprintf(stderr, "error: Invalid action '%s'\n", action);
+					printHelp();
+					return -1;
+				}
+				
+				if(optind + 3 > argc) {
+					fprintf(stderr, "error: A snapshot name must be specified.\n");
+					printHelp();
+					return -1;
+				}
+				
+				listSnapshot(repo, argv[optind + 2]);
 				break;
 		}
 	} catch(const std::exception& e) {
