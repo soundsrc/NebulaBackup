@@ -43,6 +43,7 @@ static void printHelp()
 	printf("       NebulaBackup [options] list <repo> <snapshot>\n");
 	printf("       NebulaBackup [options] delete <repo> <snapshot>\n");
 	printf("       NebulaBackup [options] compact <repo>\n");
+	printf("       NebulaBackup [options] password <repo>\n");
 	printf("\n");
 	printf("<repo> can be in the format of:\n");
 	printf("       [backend://][user@][hostname:]/path\n");
