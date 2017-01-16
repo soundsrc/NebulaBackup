@@ -179,7 +179,7 @@ TEST(DataStoreTests, List) {
 			"/sub/a.txt",
 			"/sub/b.txt",
 			"/sub/C.txt",
-			"/sub2/a.txt"
+			"/sub2/a.txt",
 			"/sub2/b.txt",
 			"/sub2/x/a.txt",
 			"/sub2/x/b.txt",
@@ -188,15 +188,92 @@ TEST(DataStoreTests, List) {
 			"/a.txt"
 		};
 		
-		std::set<std::string> pathSet;
+		static const char *results[] = {
+			"blah",
+			"x.txt",
+			"a.txt"
+		};
+		
 		for(int i = 0; i < sizeof(paths) / sizeof(paths[0]); ++i)
 		{
 			MemoryInputStream m(buffer, sizeof(buffer));
 			EXPECT_NO_THROW(ds.put(paths[i], m));
-			pathSet.insert(paths[i]);
+		}
+		
+		std::set<std::string> pathSet;
+		for(int i = 0; i < sizeof(results) / sizeof(results[0]); ++i)
+		{
+			pathSet.insert(results[i]);
 		}
 		
 		ds.list("/", [&pathSet](const char *path, void*) {
+			if(path) {
+				auto it = pathSet.find(path);
+				EXPECT_NE(it, pathSet.end());
+				if(it != pathSet.end()) {
+					pathSet.erase(it);
+				}
+			}
+		}, nullptr);
+		EXPECT_EQ(pathSet.size(), 0);
+		
+		static const char *results2[] = {
+			"a.txt",
+			"b.txt",
+			"C.txt"
+		};
+		pathSet.clear();
+		for(int i = 0; i < sizeof(results2) / sizeof(results2[0]); ++i)
+		{
+			pathSet.insert(results2[i]);
+		}
+		
+		ds.list("/sub", [&pathSet](const char *path, void*) {
+			if(path) {
+				auto it = pathSet.find(path);
+				EXPECT_NE(it, pathSet.end());
+				if(it != pathSet.end()) {
+					pathSet.erase(it);
+				}
+			}
+		}, nullptr);
+		EXPECT_EQ(pathSet.size(), 0);
+		
+		
+		static const char *results3[] = {
+			"a.txt",
+			"b.txt"
+		};
+		pathSet.clear();
+		for(int i = 0; i < sizeof(results3) / sizeof(results3[0]); ++i)
+		{
+			pathSet.insert(results3[i]);
+		}
+		
+		ds.list("/sub2", [&pathSet](const char *path, void*) {
+			if(path) {
+				auto it = pathSet.find(path);
+				EXPECT_NE(it, pathSet.end());
+				if(it != pathSet.end()) {
+					pathSet.erase(it);
+				}
+			}
+		}, nullptr);
+		EXPECT_EQ(pathSet.size(), 0);
+		
+		
+		static const char *results4[] = {
+			"a.txt",
+			"b.txt",
+			"c.txt"
+		};
+		pathSet.clear();
+		for(int i = 0; i < sizeof(results4) / sizeof(results4[0]); ++i)
+		{
+			pathSet.insert(results4[i]);
+		}
+		
+		ds.list("/sub2/x", [&pathSet](const char *path, void*) {
 			if(path) {
 				auto it = pathSet.find(path);
 				EXPECT_NE(it, pathSet.end());

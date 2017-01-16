@@ -130,14 +130,14 @@ namespace Nebula
 		using namespace boost;
 		filesystem::path fullPath = mStoreDirectory / path;
 
-		filesystem::recursive_directory_iterator dirIterator(fullPath);
+		filesystem::directory_iterator dirIterator(fullPath);
 
 		for(auto& file : dirIterator)
 		{
 			if(!filesystem::is_directory(file))
 			{
 				filesystem::path relativePath = filesystem::relative(file.path(), fullPath);
-				listCallback((filesystem::path("/") / relativePath).make_preferred().c_str(), userData);
+				listCallback(relativePath.make_preferred().c_str(), userData);
 			}
 		}
 		
