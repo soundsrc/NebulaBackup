@@ -33,7 +33,7 @@ public: \
 	DEFINE_EXCEPTION(CancelledException);
 	DEFINE_EXCEPTION(DiskQuotaExceededException);
 	DEFINE_EXCEPTION(InvalidArgumentException);
-	DEFINE_EXCEPTION(RepositoryLockedException);
+	DEFINE_EXCEPTION(RepositoryException);
 	DEFINE_EXCEPTION(InvalidRepositoryException);
 	DEFINE_EXCEPTION(InvalidDataException);
 	DEFINE_EXCEPTION(InvalidOperationException);
