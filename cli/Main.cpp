@@ -268,6 +268,10 @@ static void listSnapshot(const char *repository, const char *snapshotName)
 		if(fe.mode & 0002) modeString[8] = 'w';
 		if(fe.mode & 0001) modeString[9] = 'x';
 		
+		if(fe.mode & 04000) modeString[3] = (fe.mode & 0100) ? 's' : 'S';
+		if(fe.mode & 02000) modeString[6] = (fe.mode & 0010) ? 's' : 'S';
+		if(fe.mode & 01000) modeString[9] = (fe.mode & 0001) ? 't' : 'T';
+		
 		printf("%-11s %-8s %-8s %10llu %s\n",
 			   modeString,
 			   user,
