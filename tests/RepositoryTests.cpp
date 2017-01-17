@@ -51,6 +51,34 @@ TEST(RepositoryTests, CreateAndUnlock) {
 	EXPECT_FALSE(exists(tmpPath));
 }
 
+TEST(RepositoryTests, ChangePassword)
+{
+	using namespace boost::filesystem;
+	using namespace Nebula;
+	
+	path tmpPath = unique_path();
+	EXPECT_TRUE( create_directory(tmpPath) );
+	
+	{
+		scopedExit([tmpPath] { remove_all(tmpPath); });
+		
+		FileDataStore ds(tmpPath.c_str());
+		Repository repo(&ds);
+		
+		EXPECT_NO_THROW(repo.initializeRepository("randomPassword1234"));
+		EXPECT_TRUE(repo.unlockRepository("randomPassword1234"));
+		EXPECT_FALSE(repo.unlockRepository("randomPassword1234w"));
+		EXPECT_FALSE(repo.changePassword("randomPassword1234w", "asdfasd"));
+		EXPECT_TRUE(repo.changePassword("randomPassword1234", "newPassword"));
+		
+		EXPECT_FALSE(repo.unlockRepository("wrongPassword"));
+		EXPECT_FALSE(repo.unlockRepository("randomPassword1234"));
+		EXPECT_TRUE(repo.unlockRepository("newPassword"));
+	}
+	
+	EXPECT_FALSE(exists(tmpPath));
+}
+
 TEST(RepositoryTests, SmallFileUploadTest)
 {
 	using namespace boost::filesystem;
