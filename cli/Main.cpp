@@ -38,6 +38,7 @@ static void printHelp()
 {
 	printf("usage: NebulaBackup [options] init <repo>\n");
 	printf("       NebulaBackup [options] backup <repo> <snapshot> <file> [<file>...]\n");
+	printf("       NebulaBackup [options] restore <repo> <snapshot> <destdir>\n");
 	printf("       NebulaBackup [options] download <repo> <snapshot> <file> [<file>...]\n");
 	printf("       NebulaBackup [options] list <repo>\n");
 	printf("       NebulaBackup [options] list <repo> <snapshot>\n");
@@ -282,6 +283,28 @@ static void listSnapshot(const char *repository, const char *snapshotName)
 	});
 }
 
+static void changePassword(const char *repository)
+{
+	using namespace Nebula;
+	using namespace boost;
+	
+	auto dataStore = createDataStoreFromRepository(repository);
+	Repository repo(dataStore.get());
+	
+	printf("Old password\n");
+	ZeroedString oldPassword = promptReadPassword(false);
+	
+	if(!repo.unlockRepository(oldPassword.c_str())) {
+		throw RepositoryException("Invalid password.");
+	}
+	
+	printf("New password\n");
+	ZeroedString newPassword = promptReadPassword(true);
+	repo.changePassword(oldPassword.c_str(), newPassword.c_str());
+	
+	printf("Password updated.\n");
+}
+
 int main(int argc, char *argv[])
 {
 	using namespace Nebula;
@@ -364,6 +387,15 @@ int main(int argc, char *argv[])
 				} else {
 					listSnapshot(repo, argv[optind + 2]);
 				}
+				break;
+			case 'p':
+				if(strcmp(action, "password") != 0) {
+					fprintf(stderr, "error: Invalid action '%s'\n", action);
+					printHelp();
+					return -1;
+				}
+				
+				changePassword(repo);
 				break;
 		}
 	} catch(const std::exception& e) {
