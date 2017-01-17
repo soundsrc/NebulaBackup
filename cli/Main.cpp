@@ -283,6 +283,39 @@ static void listSnapshot(const char *repository, const char *snapshotName)
 	});
 }
 
+static void downloadFiles(const char *repository, const char *snapshotName, int argc, char *argv[])
+{
+	using namespace Nebula;
+	using namespace boost;
+	
+	auto dataStore = createDataStoreFromRepository(repository);
+	Repository repo(dataStore.get());
+	
+	ZeroedString password = promptReadPassword(false);
+	if(!repo.unlockRepository(password.c_str())) {
+		throw RepositoryException("Invalid password.");
+	}
+	
+	std::unique_ptr<Snapshot> snapshot(repo.loadSnapshot(snapshotName));
+	for(int i = 0; i < argc; ++i) {
+		filesystem::path destPath = filesystem::path(argv[i]).filename();
+		
+		if(filesystem::exists(destPath)) {
+			printf("%s: File exists. Overwrite (y/n)? ", destPath.c_str());
+			fflush(stdout);
+			if(fgetc(stdin) != 'y') {
+				continue;
+			}
+		}
+		
+		if(!options.quiet) {
+			printf("%s\n", destPath.c_str());
+		}
+		FileStream outStream(destPath.c_str(), FileMode::Write);
+		repo.downloadFile(snapshot.get(), argv[i], outStream);
+	}
+}
+
 static void changePassword(const char *repository)
 {
 	using namespace Nebula;
@@ -345,9 +378,7 @@ int main(int argc, char *argv[])
 			case 'i':
 			{
 				if(strcmp(action, "init") != 0) {
-					fprintf(stderr, "error: Invalid action '%s'\n", action);
-					printHelp();
-					return -1;
+					throw InvalidArgumentException(std::string("Invalid action: ") + action);
 				}
 				
 				initializeRepository(repo);
@@ -356,30 +387,37 @@ int main(int argc, char *argv[])
 				
 			case 'b':
 				if(strcmp(action, "backup") != 0) {
-					fprintf(stderr, "error: Invalid action '%s'\n", action);
-					printHelp();
-					return -1;
+					throw InvalidArgumentException(std::string("Invalid action: ") + action);
 				}
 				
 				if(optind + 3 > argc) {
-					fprintf(stderr, "error: A snapshot name must be specified.\n");
-					printHelp();
-					return -1;
+					throw InvalidArgumentException("A snapshot name must be specified.");
 				}
 				
 				if(optind + 4 > argc) {
-					fprintf(stderr, "error: Atleast 1 file must be specified.\n");
-					printHelp();
-					return -1;
+					throw InvalidArgumentException("Atleast 1 file must be specified.");
 				}
 				
 				backupFiles(repo, argv[optind + 2], argc - (optind + 3), argv + optind + 3);
 				break;
+			case 'd':
+				if(strcmp(action, "download") == 0) {
+					if(optind + 3 > argc) {
+						throw InvalidArgumentException("A snapshot name must be specified.");
+					}
+					
+					if(optind + 4 > argc) {
+						throw InvalidArgumentException("Atleast 1 file must be specified.");
+					}
+					
+					downloadFiles(repo, argv[optind + 2], argc - (optind + 3), argv + optind + 3);
+				} else {
+					throw InvalidArgumentException(std::string("Invalid action: ") + action);
+				}
+				break;
 			case 'l':
 				if(strcmp(action, "list") != 0) {
-					fprintf(stderr, "error: Invalid action '%s'\n", action);
-					printHelp();
-					return -1;
+					throw InvalidArgumentException(std::string("Invalid action: ") + action);
 				}
 				
 				if(optind + 3 > argc) {
@@ -390,9 +428,7 @@ int main(int argc, char *argv[])
 				break;
 			case 'p':
 				if(strcmp(action, "password") != 0) {
-					fprintf(stderr, "error: Invalid action '%s'\n", action);
-					printHelp();
-					return -1;
+					throw InvalidArgumentException(std::string("Invalid action: ") + action);
 				}
 				
 				changePassword(repo);
