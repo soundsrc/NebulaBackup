@@ -48,7 +48,7 @@ namespace Nebula
 		 * The files and data structures will be setup using
 		 * the supplied password.
 		 */
-		void initializeRepository(const char *password, int rounds = 4096, ProgressFunction progress = DefaultProgressFunction);
+		void initializeRepository(const char *password, uint8_t logRounds = 17, ProgressFunction progress = DefaultProgressFunction);
 		
 		/**
 		 * Unlocks an existing repository. This should be called before
@@ -70,7 +70,7 @@ namespace Nebula
 		 * Initiates a change password operation.
 		 * @param oldPassword
 		 */
-		bool changePassword(const char *oldPassword, const char *newPassword);
+		bool changePassword(const char *oldPassword, const char *newPassword, uint8_t logRounds = 17, ProgressFunction progress = DefaultProgressFunction);
 
 		/**
 		 * Lists available snapshots in the repository
@@ -107,6 +107,8 @@ namespace Nebula
 		void commitSnapshot(Snapshot *snapshot, const char *name, ProgressFunction progress = DefaultProgressFunction);
 
 	private:
+		enum { MAX_LOG_ROUNDS = 26 };
+
 		DataStore *mDataStore;
 		uint8_t *mEncKey;
 		uint8_t *mMacKey;
@@ -121,5 +123,7 @@ namespace Nebula
 		int hexToNibble(char h) const;
 		std::string hmac256ToString(const uint8_t *hmac) const;
 		void hmac256strToHmac(const char *str, uint8_t *outHmac);
+		
+		void writeRepositoryKey(const char *password, uint8_t logRounds = 17, ProgressFunction progress = DefaultProgressFunction);
 	};
 }

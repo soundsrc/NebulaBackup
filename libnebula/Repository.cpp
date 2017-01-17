@@ -73,34 +73,32 @@ namespace Nebula
 		}
 	};
 	
-	void Repository::initializeRepository(const char *password, int rounds, ProgressFunction progress)
+	void Repository::writeRepositoryKey(const char *password, uint8_t logRounds, ProgressFunction progress)
 	{
 		// derive key from password
 		ZeroedArray<uint8_t, EVP_MAX_MD_SIZE> derivedKey;
 		
+		if(logRounds > MAX_LOG_ROUNDS) {
+			throw InvalidArgumentException("Specified number of rounds too big.");
+		}
+
 		uint8_t salt[PKCS5_SALT_LEN];
 		arc4random_buf(salt, sizeof(salt));
-		if(!PKCS5_PBKDF2_HMAC(password, strlen(password), salt, sizeof(salt), rounds, EVP_sha512(), derivedKey.size(), derivedKey.data())) {
+		if(!PKCS5_PBKDF2_HMAC(password, strlen(password), salt, sizeof(salt), 1 << logRounds, EVP_sha512(), derivedKey.size(), derivedKey.data())) {
 			throw EncryptionFailedException("Failed to set password.");
 		}
 		
-		// random generate the encryption key
-		arc4random_buf(mEncKey, EVP_MAX_KEY_LENGTH);
-		arc4random_buf(mMacKey, EVP_MAX_KEY_LENGTH);
-		arc4random_buf(mHashKey, EVP_MAX_KEY_LENGTH);
-		arc4random_buf(mRollKey, EVP_MAX_KEY_LENGTH);
-		
 		// encrypt the encryption key with the derived key
 		TempFileStream keyStream;
-
+		
 		keyStream.write("NEBULABACKUP", 12);
 		
 		keyStream.writeType<uint32_t>(0x00010000);
 		keyStream.writeType<uint32_t>(0);
-		keyStream.writeType<uint32_t>(rounds);
-
+		keyStream.writeType<uint32_t>(1 << logRounds);
+		
 		keyStream.write(salt, PKCS5_SALT_LEN);
-
+		
 		// encrypt key with the derived key
 		uint8_t encBytes[EVP_MAX_KEY_LENGTH * 4 + EVP_MAX_BLOCK_LENGTH];
 		MemoryOutputStream outStream(encBytes, sizeof(encBytes));
@@ -113,7 +111,7 @@ namespace Nebula
 		outStream.close();
 		
 		keyStream.write(outStream.data(), outStream.size());
-
+		
 		uint8_t hmac[EVP_MAX_MD_SIZE];
 		unsigned int hmacLen = sizeof(hmac);
 		if(!HMAC(EVP_sha256(), derivedKey.data(), derivedKey.size(),
@@ -122,8 +120,19 @@ namespace Nebula
 		}
 		keyStream.write(hmac, sizeof(hmac));
 		keyStream.close();
-
+		
 		mDataStore->put("/key", *keyStream.inputStream(), progress);
+	}
+
+	void Repository::initializeRepository(const char *password, uint8_t logRounds, ProgressFunction progress)
+	{
+		// random generate the encryption key
+		arc4random_buf(mEncKey, EVP_MAX_KEY_LENGTH);
+		arc4random_buf(mMacKey, EVP_MAX_KEY_LENGTH);
+		arc4random_buf(mHashKey, EVP_MAX_KEY_LENGTH);
+		arc4random_buf(mRollKey, EVP_MAX_KEY_LENGTH);
+		
+		writeRepositoryKey(password, logRounds, progress);
 	}
 	
 	bool Repository::unlockRepository(const char *password, ProgressFunction progress)
@@ -135,30 +144,26 @@ namespace Nebula
 		auto stream = keyStream.inputStream();
 
 		char magic[12];
-		stream->read(magic, sizeof(magic));
+		stream->readExpected(magic, sizeof(magic));
 		if(strncmp(magic, "NEBULABACKUP", 12) != 0) {
 			throw InvalidRepositoryException("Back up stream is invalid.");
 		}
 
-		uint32_t version = 0;
-		stream->read(&version, sizeof(version));
+		uint32_t version = stream->readType<uint32_t>();
 		if(version != 0x00010000) {
 			throw InvalidRepositoryException("Invalid version number.");
 		}
 		
-		uint32_t algorithm;
-		stream->read(&algorithm, sizeof(algorithm)); // algorithm
+		uint32_t algorithm = stream->readType<uint32_t>();
 		if(algorithm != 0) {
 			throw InvalidRepositoryException("Invalid algorithm.");
-			
 		}
 		
-		uint32_t rounds;
-		stream->read(&rounds, sizeof(rounds));
-		if(rounds > 100000) {
+		uint32_t rounds = stream->readType<uint32_t>();
+		if(rounds > (1 << MAX_LOG_ROUNDS)) {
 			throw InvalidRepositoryException("Invalid number of rounds.");
 		}
-		
+
 		uint8_t salt[PKCS5_SALT_LEN];
 		stream->read(salt, sizeof(salt));
 		ZeroedArray<uint8_t, EVP_MAX_KEY_LENGTH> derivedKey;
@@ -190,6 +195,13 @@ namespace Nebula
 		decStream.read(mHashKey, EVP_MAX_KEY_LENGTH);
 		decStream.read(mRollKey, EVP_MAX_KEY_LENGTH);
 
+		return true;
+	}
+	
+	bool Repository::changePassword(const char *oldPassword, const char *newPassword, uint8_t logRounds, ProgressFunction progress)
+	{
+		if(!unlockRepository(oldPassword)) return false;
+		writeRepositoryKey(newPassword, logRounds, progress);
 		return true;
 	}
 	
