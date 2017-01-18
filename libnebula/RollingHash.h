@@ -37,17 +37,20 @@ namespace Nebula
 		/**
 		 * Updates the rolling hash with the byte.
 		 */
-		uint32_t roll(uint8_t c);
+		uint64_t roll(uint8_t c);
 		
-		uint32_t hash() const { return mEncHash; }
+		uint64_t hash() const { return mHash; }
 	private:
-		uint32_t mConstant;
-		uint32_t mHash;
-		uint32_t mEncHash;
-		uint32_t mConstantPowWinSize;
+		uint64_t mHash;
+
+		uint64_t mConstant;
+		uint64_t mConstantPowWinSize;
+
 		int mWindowSize;
 		int mIndex;
 		std::vector<uint8_t> mWindow;
+
 		ZeroedArray<uint8_t, 32> mKey;
+		ZeroedArray<uint32_t, 256> mSubTable;
 	};
 }

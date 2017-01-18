@@ -301,7 +301,7 @@ namespace Nebula
 			blockSizeLog = ceil(log(fileLength / 8) / log(2));
 			if(blockSizeLog  < 16) blockSizeLog  = 16;
 			if(blockSizeLog  > 25) blockSizeLog  = 25;
-			uint32_t hashMask = (1 << blockSizeLog) - 1;
+			uint64_t hashMask = (1 << blockSizeLog) - 1;
 			
 			std::vector<uint8_t> blockBuffer;
 			blockBuffer.reserve(1 << (1 + blockSizeLog));

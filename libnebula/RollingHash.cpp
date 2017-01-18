@@ -17,6 +17,7 @@
 #include "RollingHash.h"
 #include <stdint.h>
 #include <string.h>
+#include <memory>
 #include <openssl/evp.h>
 #include "ScopedExit.h"
 #include "Exception.h"
@@ -24,15 +25,14 @@
 namespace Nebula
 {
 	RollingHash::RollingHash(const uint8_t *key, int windowSize)
-	: mConstant(33)
-	, mHash(0)
-	, mEncHash(0)
+	: mHash(0)
+	, mConstant(33)
 	, mWindowSize(windowSize)
 	, mIndex(windowSize - 1)
 	{
 		mWindow.resize(windowSize);
 
-		// mConstantPowWinSize = (mConstant ^ windowSize) mod (2^32-1)
+		// mConstantPowWinSize = (mConstant ^ windowSize) mod (2^64-1)
 
 		mConstantPowWinSize = 1;
 		uint32_t base = mConstant;
@@ -45,43 +45,44 @@ namespace Nebula
 		}
 
 		memcpy(mKey.data(), key, 32);
+		
+		EVP_CIPHER_CTX ctx;
+		
+		EVP_CIPHER_CTX_init(&ctx);
+		std::unique_ptr<EVP_CIPHER_CTX, decltype(EVP_CIPHER_CTX_cleanup) *>
+			onExit(&ctx, EVP_CIPHER_CTX_cleanup);
+		
+		uint8_t iv[EVP_MAX_IV_LENGTH];
+		memset(iv, 0xAA, sizeof(iv));
+		if(!EVP_CipherInit(&ctx, EVP_aes_256_cbc(), mKey.data(), iv, 1)) {
+			throw EncryptionFailedException("Failed to initialize cipher.");
+		}
+		
+		uint8_t encBlock[256 * sizeof(uint32_t) - 16];
+		memset(encBlock, 0x33, sizeof(encBlock));
+		
+		int outLen = 256 * sizeof(uint32_t);
+		if(!EVP_CipherUpdate(&ctx, (uint8_t *)mSubTable.data(), &outLen, encBlock, sizeof(encBlock))) {
+			throw EncryptionFailedException("Failed to encrypt rolling hash.");
+		}
+		
+		outLen = 256 * sizeof(uint32_t) - outLen;
+		if(!EVP_CipherFinal(&ctx, (uint8_t *)mSubTable.data() + outLen, &outLen)) {
+			throw EncryptionFailedException("Failed to encrypt rolling hash.");
+		}
 	}
 	
 	RollingHash::~RollingHash()
 	{
 	}
 
-	uint32_t RollingHash::roll(uint8_t c)
+	uint64_t RollingHash::roll(uint8_t c)
 	{
 		mIndex = (mIndex + 1) % mWindowSize;
-		uint32_t sub = mConstantPowWinSize * mWindow[mIndex];
+		uint64_t sub = mConstantPowWinSize * mSubTable[mWindow[mIndex]];
 		mWindow[mIndex] = c;
-		mHash = (mHash * mConstant) + c - sub;
-#if 0
-		EVP_CIPHER_CTX ctx;
-		
-		EVP_CIPHER_CTX_init(&ctx);
-		ScopedExit onExit([&ctx] { EVP_CIPHER_CTX_cleanup(&ctx); });
-		
-		if(!EVP_CipherInit(&ctx, EVP_aes_128_ecb(), mKey.data(), nullptr, 1)) {
-			throw EncryptionFailedException("Failed to initialize cipher.");
-		}
-		
-		uint8_t md[EVP_MAX_BLOCK_LENGTH];
-		int outLen = EVP_MAX_BLOCK_LENGTH;
-		if(!EVP_CipherUpdate(&ctx, md, &outLen, (unsigned char *)&mHash, sizeof(mHash))) {
-			throw EncryptionFailedException("Failed to encrypt rolling hash.");
-		}
-		
-		if(!EVP_CipherFinal(&ctx, md + outLen, &outLen)) {
-			throw EncryptionFailedException("Failed to encrypt rolling hash.");
-		}
-		
-		mEncHash = (md[0] << 24 | md[1] << 16 | md[2] << 8 | md[3]);
-#else
-		mEncHash = mHash;
-#endif
+		mHash = (mHash * mConstant) + mSubTable[c] - sub;
 
-		return mEncHash + 0x12a7931e; // <-- literally a random magic number
+		return mHash;
 	}
 }
