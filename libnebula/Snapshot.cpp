@@ -98,13 +98,17 @@ namespace Nebula
 	void Snapshot::forEachFileEntry(const char *subpath, const std::function<void (const FileEntry&)>& callback)
 	{
 		std::lock_guard<std::recursive_mutex> lock(mMutex);
-		size_t n = strlen(subpath);
+		std::string searchPath = subpath;
+		while(!searchPath.empty() && searchPath.back() == '/') {
+			searchPath.pop_back();
+		}
 
-		auto found = mFiles.lower_bound(subpath);
+		size_t n = searchPath.size();
+		auto found = mFiles.lower_bound(searchPath.c_str());
 		while(found != mFiles.end()) {
 			const char *filePath = indexToString(found->second.pathIndex);
-			if(strncmp(subpath, filePath, n) != 0) break;
-			
+			if(strncmp(searchPath.c_str(), filePath, n) != 0) break;
+			if(!searchPath.empty() && filePath[n] != 0 && filePath[n] != '/') break;
 			callback(found->second);
 			++found;
 		}
