@@ -33,15 +33,15 @@ namespace Nebula
 		mWindow.resize(windowSize);
 
 		// mConstantPowWinSize = (mConstant ^ windowSize) mod (2^64-1)
-
 		mConstantPowWinSize = 1;
-		uint32_t base = mConstant;
-		while(windowSize > 0) {
-			if(windowSize & 1) {
+		uint64_t base = mConstant;
+		int u = windowSize;
+		while(u > 0) {
+			if(u & 1) {
 				mConstantPowWinSize = (base * mConstantPowWinSize);
 			}
 			base = base * base;
-			windowSize >>= 1;
+			u >>= 1;
 		}
 
 		memcpy(mKey.data(), key, 32);
@@ -58,21 +58,29 @@ namespace Nebula
 			throw EncryptionFailedException("Failed to initialize cipher.");
 		}
 		
-		uint8_t encBlock[256 * sizeof(uint32_t) - 16];
-		memset(encBlock, 0x33, sizeof(encBlock));
+		uint8_t inBlock[256 * 4], outBlock[256 * 4 + EVP_MAX_BLOCK_LENGTH];
+		memset(inBlock, 0x33, sizeof(inBlock));
 		
-		int outLen = 256 * sizeof(uint32_t);
-		if(!EVP_CipherUpdate(&ctx, (uint8_t *)mSubTable.data(), &outLen, encBlock, sizeof(encBlock))) {
+		int outLen = sizeof(outBlock);
+		if(!EVP_CipherUpdate(&ctx, outBlock, &outLen, inBlock, sizeof(inBlock))) {
 			throw EncryptionFailedException("Failed to encrypt rolling hash.");
 		}
-		
-		outLen = 256 * sizeof(uint32_t) - outLen;
-		if(!EVP_CipherFinal(&ctx, (uint8_t *)mSubTable.data() + outLen, &outLen)) {
+
+		int finalLen = sizeof(outBlock) - outLen;
+		if(!EVP_CipherFinal(&ctx, outBlock + outLen, &finalLen)) {
 			throw EncryptionFailedException("Failed to encrypt rolling hash.");
 		}
-		
+
+		for(int i = 0; i < 256; ++i) {
+			const uint8_t *p = outBlock + (i << 2);
+			mSubTable[i] = (p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3];
+		}
+
 		// compute the initial hash
-		for(int i = 0; i < windowSize; ++i) roll(0);
+		mHash = 0;
+		for(int i = 0; i < windowSize; ++i) {
+			mHash = (mHash * mConstant) + mSubTable[0];
+		}
 	}
 	
 	RollingHash::~RollingHash()

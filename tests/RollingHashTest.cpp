@@ -38,7 +38,7 @@ TEST(RollingHashTests, Roll) {
 	arc4random_buf(key, sizeof(key));
 
 	RollingHash h(key, 16384);
-	uint32_t hash1, hash2;
+	uint64_t hash1, hash2;
 	for(int i = 0; i < 16384; ++i) {
 		 h.roll(mHash[i]);
 	}
@@ -49,6 +49,19 @@ TEST(RollingHashTests, Roll) {
 	hash2 = h.hash();
 	
 	ASSERT_EQ(hash1, hash2);
+}
+
+TEST(RollingHashTests, InitialValue)
+{
+	using namespace Nebula;
+	
+	uint8_t key[32];
+	arc4random_buf(key, sizeof(key));
+	
+	RollingHash h1(key, 16384);
+	RollingHash h2(key, 16384);
+	
+	ASSERT_EQ(h1.hash(), h2.hash());
 }
 
 #if 0
