@@ -104,7 +104,7 @@ namespace Nebula
 		std::vector<BlockHash, ZeroedAllocator<BlockHash>> mBlockHashes;
 		std::map<std::string, FileEntry, std::less<std::string>, ZeroedAllocator<FileEntry>> mFiles;
 
-		std::mutex mMutex;
+		std::recursive_mutex mMutex;
 	
 		int insertStringTable(const char *str);
 		int addBlockHashes(const BlockHash *blockHashes, int count);

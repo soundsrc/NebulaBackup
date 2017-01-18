@@ -58,7 +58,7 @@ namespace Nebula
 					  int numBlocks,
 					  const BlockHash *blockHashes)
 	{
-		std::lock_guard<std::mutex> lock(mMutex);
+		std::lock_guard<std::recursive_mutex> lock(mMutex);
 		
 		FileEntry fe;
 		fe.pathIndex = insertStringTable(path);
@@ -77,7 +77,7 @@ namespace Nebula
 	
 	const Snapshot::FileEntry *Snapshot::getFileEntry(const char *path)
 	{
-		std::lock_guard<std::mutex> lock(mMutex);
+		std::lock_guard<std::recursive_mutex> lock(mMutex);
 		
 		auto f = mFiles.find(path);
 		if(f == mFiles.end()) {
@@ -89,7 +89,7 @@ namespace Nebula
 	
 	void Snapshot::forEachFileEntry(const std::function<void (const FileEntry&)>& callback)
 	{
-		std::lock_guard<std::mutex> lock(mMutex);
+		std::lock_guard<std::recursive_mutex> lock(mMutex);
 		for(auto fe : mFiles) {
 			callback(fe.second);
 		}
@@ -97,7 +97,7 @@ namespace Nebula
 	
 	void Snapshot::deleteFileEntry(const char *path)
 	{
-		std::lock_guard<std::mutex> lock(mMutex);
+		std::lock_guard<std::recursive_mutex> lock(mMutex);
 
 		auto entry = mFiles.find(path);
 		if(entry != mFiles.end()) {
@@ -107,7 +107,7 @@ namespace Nebula
 	
 	void Snapshot::load(InputStream& inStream)
 	{
-		std::lock_guard<std::mutex> lock(mMutex);
+		std::lock_guard<std::recursive_mutex> lock(mMutex);
 		
 		uint32_t numFiles = inStream.readType<uint32_t>();
 		uint32_t stringTableSize = inStream.readType<uint32_t>() * 4;
@@ -151,7 +151,7 @@ namespace Nebula
 	
 	void Snapshot::save(OutputStream& outStream)
 	{
-		std::lock_guard<std::mutex> lock(mMutex);
+		std::lock_guard<std::recursive_mutex> lock(mMutex);
 
 		// file size, string table size, and block count
 		outStream.writeType<uint32_t>(mFiles.size());
