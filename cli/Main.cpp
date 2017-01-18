@@ -53,6 +53,7 @@ static void printHelp()
 	printf(" -q, --quiet              Run without output\n");
 	printf(" -b, --backend            Explicitly specify the backend\n");
 	printf("     --verify             Verify downloaded files\n");
+	printf(" -n, --dry-run            Dry-run\n");
 	printf("\n");
 	printf("ssh backend options:\n");
 	printf(" -u, --username=USER      SSH username\n");
@@ -66,9 +67,14 @@ static void printHelp()
 
 struct Options
 {
-	int quiet;
-	
-	Options() : quiet(0) { }
+	bool quiet;
+	bool verify;
+	bool dryRun;
+
+	Options()
+	: quiet(false)
+	, verify(false)
+	, dryRun(false) { }
 };
 
 static Options options;
@@ -198,16 +204,21 @@ static void backupFiles(const char *repository, const char *snapshotName, int ar
 					if(!options.quiet) {
 						printf("%s\n", file.path().c_str());
 					}
-					FileStream fs(file.path().c_str(), FileMode::Read);
-					repo.uploadFile(snapshot.get(), file.path().c_str(), fs);
+					
+					if(!options.dryRun) {
+						FileStream fs(file.path().c_str(), FileMode::Read);
+						repo.uploadFile(snapshot.get(), file.path().c_str(), fs);
+					}
 				}
 			}
 		} else {
 			if(!options.quiet) {
 				printf("%s\n", argv[i]);
 			}
-			FileStream fs(argv[i], FileMode::Read);
-			repo.uploadFile(snapshot.get(), argv[i], fs);
+			if(!options.dryRun) {
+				FileStream fs(argv[i], FileMode::Read);
+				repo.uploadFile(snapshot.get(), argv[i], fs);
+			}
 		}
 	}
 	
@@ -312,7 +323,7 @@ static void downloadFiles(const char *repository, const char *snapshotName, int 
 
 			filesystem::path filePath = destPath / filesystem::path(filename);
 
-			if(filesystem::exists(filePath)) {
+			if(!options.dryRun && filesystem::exists(filePath)) {
 				printf("%s: File exists. Overwrite (y/n)? ", filePath.c_str());
 				fflush(stdout);
 				if(fgetc(stdin) != 'y') {
@@ -325,12 +336,14 @@ static void downloadFiles(const char *repository, const char *snapshotName, int 
 				printf("%s\n", filePath.c_str());
 			}
 
-			if(!filesystem::is_directory(filePath)) {
-				filesystem::create_directories(filePath.parent_path());
-			}
+			if(!options.dryRun) {
+				if(!filesystem::is_directory(filePath)) {
+					filesystem::create_directories(filePath.parent_path());
+				}
 
-			FileStream outStream(filePath.c_str(), FileMode::Write);
-			repo.downloadFile(snapshot.get(), srcFile, outStream);
+				FileStream outStream(filePath.c_str(), FileMode::Write);
+				repo.downloadFile(snapshot.get(), srcFile, outStream);
+			}
 		});
 		
 	}
@@ -366,18 +379,25 @@ int main(int argc, char *argv[])
 	{
 		{ "help", no_argument, 0, 0 },
 		{ "quiet", no_argument, 0, 'q' },
+		{ "dry-run", no_argument, 0, 'n' },
+		{ "verify", no_argument, 0, 0 },
 		{ 0, 0, 0, 0 }
 	};
 	
 	int c;
 	int optIndex;
-	while((c = getopt_long(argc, argv, "q", longOptions, &optIndex)) >= 0) {
+	while((c = getopt_long(argc, argv, "qn", longOptions, &optIndex)) >= 0) {
 		switch (c) {
 			case 0:
-				
+				if(strcmp(longOptions[optIndex].name, "verify") == 0) {
+					options.verify = true;
+				}
 				break;
 			case 'q':
-				options.quiet = 0;
+				options.quiet = true;
+				break;
+			case 'n':
+				options.dryRun = true;
 				break;
 			default:
 				printHelp();
