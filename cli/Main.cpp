@@ -39,7 +39,7 @@ static void printHelp()
 	printf("usage: NebulaBackup [options] init <repo>\n");
 	printf("       NebulaBackup [options] backup <repo> <snapshot> <file> [<file>...]\n");
 	printf("       NebulaBackup [options] restore <repo> <snapshot> <destdir>\n");
-	printf("       NebulaBackup [options] download <repo> <snapshot> <file> [<file>...]\n");
+	printf("       NebulaBackup [options] download <repo> <snapshot> <file> [<file>...] <destdir>\n");
 	printf("       NebulaBackup [options] list <repo>\n");
 	printf("       NebulaBackup [options] list <repo> <snapshot>\n");
 	printf("       NebulaBackup [options] delete <repo> <snapshot>\n");
@@ -52,6 +52,7 @@ static void printHelp()
 	printf("options:\n");
 	printf(" -q, --quiet              Run without output\n");
 	printf(" -b, --backend            Explicitly specify the backend\n");
+	printf("     --verify             Verify downloaded files\n");
 	printf("\n");
 	printf("ssh backend options:\n");
 	printf(" -u, --username=USER      SSH username\n");
@@ -288,6 +289,11 @@ static void downloadFiles(const char *repository, const char *snapshotName, int 
 	using namespace Nebula;
 	using namespace boost;
 	
+	if(!filesystem::is_directory(argv[argc - 1])) {
+		throw InvalidArgumentException("Last argument should specify a valid directory.");
+	}
+	filesystem::path destPath = filesystem::path(argv[argc - 1]);
+
 	auto dataStore = createDataStoreFromRepository(repository);
 	Repository repo(dataStore.get());
 	
@@ -297,22 +303,36 @@ static void downloadFiles(const char *repository, const char *snapshotName, int 
 	}
 	
 	std::unique_ptr<Snapshot> snapshot(repo.loadSnapshot(snapshotName));
-	for(int i = 0; i < argc; ++i) {
-		filesystem::path destPath = filesystem::path(argv[i]).filename();
-		
-		if(filesystem::exists(destPath)) {
-			printf("%s: File exists. Overwrite (y/n)? ", destPath.c_str());
-			fflush(stdout);
-			if(fgetc(stdin) != 'y') {
-				continue;
+	for(int i = 0; i < argc - 1; ++i) {
+		const char * srcFile = argv[i];
+
+		snapshot->forEachFileEntry(srcFile,
+			[&repo, srcFile, &snapshot, &destPath](const Snapshot::FileEntry& fe) {
+			const char *filename = snapshot->indexToString(fe.pathIndex);
+
+			filesystem::path filePath = destPath / filesystem::path(filename);
+
+			if(filesystem::exists(filePath)) {
+				printf("%s: File exists. Overwrite (y/n)? ", filePath.c_str());
+				fflush(stdout);
+				if(fgetc(stdin) != 'y') {
+					return;
+				}
+				printf("\n");
 			}
-		}
+			
+			if(!options.quiet) {
+				printf("%s\n", filePath.c_str());
+			}
+
+			if(!filesystem::is_directory(filePath)) {
+				filesystem::create_directories(filePath.parent_path());
+			}
+
+			FileStream outStream(filePath.c_str(), FileMode::Write);
+			repo.downloadFile(snapshot.get(), srcFile, outStream);
+		});
 		
-		if(!options.quiet) {
-			printf("%s\n", destPath.c_str());
-		}
-		FileStream outStream(destPath.c_str(), FileMode::Write);
-		repo.downloadFile(snapshot.get(), argv[i], outStream);
 	}
 }
 
