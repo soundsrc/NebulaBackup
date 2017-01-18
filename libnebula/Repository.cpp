@@ -272,7 +272,9 @@ namespace Nebula
 		blockHashes.reserve(32);
 		
 		SHA256_CTX sha256;
-		SHA256_Init(&sha256);
+		if(!SHA256_Init(&sha256)) {
+			throw EncryptionFailedException("SHA256_Init failed.");
+		}
 		
 		size_t fileLength = fileInfo.length();
 		int blockSizeLog = 0;
@@ -287,7 +289,9 @@ namespace Nebula
 				throw FileIOException("Failed to read file.");
 			}
 			
-			SHA256_Update(&sha256, buffer.get(), fileLength);
+			if(!SHA256_Update(&sha256, buffer.get(), fileLength)) {
+				throw EncryptionFailedException("SHA256_Update failed.");
+			}
 			
 			Snapshot::BlockHash blockHash;
 			compressEncryptAndUploadBlock(buffer.get(), fileLength, blockHash.hmac256, progress);
@@ -312,7 +316,9 @@ namespace Nebula
 				blockBuffer.push_back(b);
 				if((rh.roll(b) & hashMask) == 0) {
 					
-					SHA256_Update(&sha256, &blockBuffer[0], blockBuffer.size());
+					if(!SHA256_Update(&sha256, &blockBuffer[0], blockBuffer.size())) {
+						throw EncryptionFailedException("SHA256_Update failed.");
+					}
 					
 					Snapshot::BlockHash blockHash;
 					// upload block
@@ -324,14 +330,18 @@ namespace Nebula
 			
 			if(!blockBuffer.empty()) {
 				Snapshot::BlockHash blockHash;
-				SHA256_Update(&sha256, &blockBuffer[0], blockBuffer.size());
+				if(!SHA256_Update(&sha256, &blockBuffer[0], blockBuffer.size())) {
+					throw EncryptionFailedException("SHA256_Update failed.");
+				}
 				compressEncryptAndUploadBlock(&blockBuffer[0], blockBuffer.size(), blockHash.hmac256, progress);
 				blockHashes.push_back(blockHash);
 			}
 		}
 		
 		// write the SHA256
-		SHA256_Final(fileSHA256, &sha256);
+		if(!SHA256_Final(fileSHA256, &sha256)) {
+			throw EncryptionFailedException("SHA256_Final failed.");
+		}
 		
 		// update the index
 		snapshot->addFileEntry(destPath,
