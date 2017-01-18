@@ -341,7 +341,7 @@ static void downloadFiles(const char *repository, const char *snapshotName, int 
 			}
 
 			if(!options.dryRun) {
-				if(!filesystem::is_directory(filePath)) {
+				if(!filesystem::is_directory(filePath.parent_path())) {
 					filesystem::create_directories(filePath.parent_path());
 				}
 
