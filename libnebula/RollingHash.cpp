@@ -70,6 +70,9 @@ namespace Nebula
 		if(!EVP_CipherFinal(&ctx, (uint8_t *)mSubTable.data() + outLen, &outLen)) {
 			throw EncryptionFailedException("Failed to encrypt rolling hash.");
 		}
+		
+		// compute the initial hash
+		for(int i = 0; i < windowSize; ++i) roll(0);
 	}
 	
 	RollingHash::~RollingHash()
