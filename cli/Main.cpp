@@ -25,6 +25,7 @@
 
 #include <memory>
 #include <functional>
+#include <strstream>
 #include <boost/filesystem.hpp>
 #include "libnebula/DataStore.h"
 #include "libnebula/backends/FileDataStore.h"
@@ -54,6 +55,7 @@ static void printHelp()
 	printf(" -b, --backend            Explicitly specify the backend\n");
 	printf("     --verify             Verify downloaded files\n");
 	printf(" -n, --dry-run            Dry-run\n");
+	printf(" -f, --force              Don't prompt for overwrite\n");
 	printf("\n");
 	printf("ssh backend options:\n");
 	printf(" -u, --username=USER      SSH username\n");
@@ -70,11 +72,13 @@ struct Options
 	bool quiet;
 	bool verify;
 	bool dryRun;
+	bool force;
 
 	Options()
 	: quiet(false)
 	, verify(false)
-	, dryRun(false) { }
+	, dryRun(false)
+	, force(false) { }
 };
 
 static Options options;
@@ -323,7 +327,7 @@ static void downloadFiles(const char *repository, const char *snapshotName, int 
 
 			filesystem::path filePath = destPath / filesystem::path(filename);
 
-			if(!options.dryRun && filesystem::exists(filePath)) {
+			if(!options.force && !options.dryRun && filesystem::exists(filePath)) {
 				printf("%s: File exists. Overwrite (y/n)? ", filePath.c_str());
 				fflush(stdout);
 				if(fgetc(stdin) != 'y') {
@@ -341,8 +345,39 @@ static void downloadFiles(const char *repository, const char *snapshotName, int 
 					filesystem::create_directories(filePath.parent_path());
 				}
 
-				FileStream outStream(filePath.c_str(), FileMode::Write);
-				repo.downloadFile(snapshot.get(), srcFile, outStream);
+				{
+					FileStream outStream(filePath.c_str(), FileMode::Write);
+					repo.downloadFile(snapshot.get(), filename, outStream);
+				}
+				
+				if(options.verify) {
+					uint8_t buffer[8192];
+					size_t n;
+
+					SHA256_CTX ctx;
+					FileStream inStream(filePath.c_str(), FileMode::Read);
+					
+					if(!SHA256_Init(&ctx)) {
+						throw VerificationFailedException("SHA256_Init() failed.");
+					}
+
+					while((n = inStream.read(buffer, sizeof(buffer))) > 0) {
+						if(!SHA256_Update(&ctx, buffer, n)) {
+							throw VerificationFailedException("SHA256_Update() failed.");
+						}
+					}
+
+					uint8_t md[SHA256_DIGEST_LENGTH];
+					if(!SHA256_Final(md, &ctx)) {
+						throw VerificationFailedException("SHA256_Final() failed.");
+					}
+					
+					if(memcmp(md, fe.sha256, SHA256_DIGEST_LENGTH) != 0) {
+						std::strstream str;
+						str << filePath.string() << ": File verification failed. ";
+						throw VerificationFailedException(str.str());
+					}
+				}
 			}
 		});
 		
@@ -386,7 +421,7 @@ int main(int argc, char *argv[])
 	
 	int c;
 	int optIndex;
-	while((c = getopt_long(argc, argv, "qn", longOptions, &optIndex)) >= 0) {
+	while((c = getopt_long(argc, argv, "qnf", longOptions, &optIndex)) >= 0) {
 		switch (c) {
 			case 0:
 				if(strcmp(longOptions[optIndex].name, "verify") == 0) {
@@ -398,6 +433,9 @@ int main(int argc, char *argv[])
 				break;
 			case 'n':
 				options.dryRun = true;
+				break;
+			case 'f':
+				options.force = true;
 				break;
 			default:
 				printHelp();
