@@ -25,6 +25,7 @@
 extern "C" {
 #include "compat/stdlib.h"
 #include "compat/string.h"
+#include "compat/resolv.h"
 }
 #include "FileInfo.h"
 #include "RollingHash.h"
@@ -425,40 +426,38 @@ namespace Nebula
 		
 		return true;
 	}
-
-	char Repository::nibbleToHex(uint8_t nb) const
-	{
-		if(nb >= 0 && nb <= 9) return '0' + nb;
-		if(nb < 16) {
-			return 'a' + (nb - 10);
-		}
-		return 0;
-	}
-	
-	int Repository::hexToNibble(char h) const
-	{
-		char lh = tolower(h);
-		if(lh >= '0' && lh <= '9') return lh - '0';
-		if(lh >= 'a' && lh <= 'a') return lh - 'a' + 10;
-		return 0;
-	}
 	
 	std::string Repository::hmac256ToString(const uint8_t *hmac) const
 	{
-		std::string hmacStr;
-		hmacStr.reserve(64);
-		for(int i = 0; i < SHA256_DIGEST_LENGTH; ++i) {
-			hmacStr += nibbleToHex(hmac[i] >> 4);
-			hmacStr += nibbleToHex(hmac[i] & 0xF);
+		char outStr[45];
+		if(b64_ntop(hmac, SHA256_DIGEST_LENGTH, outStr, sizeof(outStr)) < 0
+		   || outStr[43] != '=') {
+			throw InvalidDataException("b64_ntop error.");
 		}
+		outStr[43] = 0;
+
+		std::transform(outStr, outStr + sizeof(outStr), outStr, [](char c) {
+			if(c == '+') return '.';
+			if(c == '/') return '_';
+			return c;
+		});
 		
-		return hmacStr;
+		return outStr;
 	}
 	
-	void Repository::hmac256strToHmac(const char *str, uint8_t *outHmac)
+	void Repository::hmac256strToHmac(const char *str, uint8_t *outHMAC)
 	{
-		for(int i = 0; i < SHA256_DIGEST_LENGTH * 2; i += 2) {
-			outHmac[i >> 1] = hexToNibble(str[i]) << 4 | hexToNibble(str[i]);
+		std::string inStr = str;
+		inStr += '=';
+
+		std::transform(inStr.begin(), inStr.end(), inStr.begin(), [](char c) {
+			if(c == '+') return '.';
+			if(c == '/') return '_';
+			return c;
+		});
+
+		if(b64_pton(inStr.c_str(), outHMAC, SHA256_DIGEST_LENGTH) < 0) {
+			throw InvalidDataException("b64_pton error.");
 		}
 	}
 }

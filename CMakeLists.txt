@@ -24,6 +24,13 @@ set (NEBULA_BACKUP_LIBS
 	 "ssh_shared"
 )
 
+if(APPLE)
+	list(APPEND NEBULA_BACKUP_LIBS
+		"resolv"
+	)
+endif(APPLE)
+
+
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/libressl")
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/libssh")
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/googletest")
@@ -185,6 +192,12 @@ target_link_libraries(Nebula PUBLIC
 	"crypto"
 	"ssh_shared"
 )
+
+if (APPLE)
+	target_link_libraries(Nebula PUBLIC
+		"resolv"
+	)
+endif(APPLE)
 
 add_executable(NebulaBackup
 	"cli/Main.cpp"

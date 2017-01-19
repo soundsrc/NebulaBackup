@@ -120,11 +120,9 @@ namespace Nebula
 
 		void computeBlockHMAC(const uint8_t *block, size_t size, uint8_t compression, uint8_t *outHMAC);
 		void compressEncryptAndUploadBlock(CompressionType compressType, const uint8_t *blockHMAC, const uint8_t *block, size_t size, ProgressFunction progress);
-		
-		char nibbleToHex(uint8_t nb) const;
-		int hexToNibble(char h) const;
+
 		std::string hmac256ToString(const uint8_t *hmac) const;
-		void hmac256strToHmac(const char *str, uint8_t *outHmac);
+		void hmac256strToHmac(const char *str, uint8_t *outHMAC);
 		
 		void writeRepositoryKey(const char *password, uint8_t logRounds = 17, ProgressFunction progress = DefaultProgressFunction);
 	};
