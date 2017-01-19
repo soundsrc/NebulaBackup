@@ -18,12 +18,10 @@
 #include "libnebula/Repository.h"
 #include "libnebula/DataStore.h"
 #include "libnebula/backends/FileDataStore.h"
-#include "libnebula/ScopedExit.h"
 #include "libnebula/FileStream.h"
 #include "libnebula/MemoryInputStream.h"
 #include "libnebula/MemoryOutputStream.h"
 #include "libnebula/TempFileStream.h"
-#include "libnebula/ScopedExit.h"
 
 #include "gtest/gtest.h"
 
@@ -36,7 +34,8 @@ TEST(RepositoryTests, CreateAndUnlock) {
 	EXPECT_TRUE( create_directory(tmpPath) );
 	
 	{
-		scopedExit([tmpPath] { remove_all(tmpPath); });
+		std::unique_ptr<path, std::function<void (path *)>>
+			onExit{ &tmpPath, [](path *p) { remove_all(*p); } };
 
 		FileDataStore ds(tmpPath.c_str());
 		Repository repo(&ds);
@@ -60,7 +59,8 @@ TEST(RepositoryTests, ChangePassword)
 	EXPECT_TRUE( create_directory(tmpPath) );
 	
 	{
-		scopedExit([tmpPath] { remove_all(tmpPath); });
+		std::unique_ptr<path, std::function<void (path *)>>
+			onExit{ &tmpPath, [](path *p) { remove_all(*p); } };
 		
 		FileDataStore ds(tmpPath.c_str());
 		Repository repo(&ds);
@@ -88,7 +88,8 @@ TEST(RepositoryTests, SmallFileUploadTest)
 	EXPECT_TRUE( create_directory(tmpPath) );
 	
 	{
-		scopedExit([tmpPath] { remove_all(tmpPath); });
+		std::unique_ptr<path, std::function<void (path *)>>
+			onExit{ &tmpPath, [](path *p) { remove_all(*p); } };
 		
 		FileDataStore ds(tmpPath.c_str());
 		Repository repo(&ds);
@@ -101,7 +102,8 @@ TEST(RepositoryTests, SmallFileUploadTest)
 		arc4random_buf(randomData1, sizeof(randomData1));
 		
 		path tmpFile = unique_path();
-		scopedExit([tmpFile] { remove(tmpFile); });
+		std::unique_ptr<path, std::function<void (path *)>>
+			onExit2{ &tmpFile, [](path *p) { remove_all(*p); } };
 		
 		FILE *fp = fopen(tmpFile.c_str(), "wb");
 		EXPECT_TRUE(fp);
@@ -131,7 +133,8 @@ TEST(RepositoryTests, LargeFileUploadTest)
 	EXPECT_TRUE( create_directory(tmpPath) );
 	
 	{
-		scopedExit([tmpPath] { remove_all(tmpPath); });
+		std::unique_ptr<path, std::function<void (path *)>>
+			onExit{ &tmpPath, [](path *p) { remove_all(*p); } };
 		
 		FileDataStore ds(tmpPath.c_str());
 		Repository repo(&ds);
@@ -145,7 +148,8 @@ TEST(RepositoryTests, LargeFileUploadTest)
 		arc4random_buf(&randomData1[0], randomData1.size());
 		
 		path tmpFile = unique_path();
-		scopedExit([tmpFile] { remove(tmpFile); });
+		std::unique_ptr<path, std::function<void (path *)>>
+			onExit2{ &tmpFile, [](path *p) { remove_all(*p); } };
 		
 		FILE *fp = fopen(tmpFile.c_str(), "wb");
 		EXPECT_TRUE(fp);
@@ -176,7 +180,8 @@ TEST(RepositoryTests, SnapshotTest)
 	EXPECT_TRUE( create_directory(tmpPath) );
 	
 	{
-		scopedExit([tmpPath] { remove_all(tmpPath); });
+		std::unique_ptr<path, std::function<void (path *)>>
+			onExit{ &tmpPath, [](path *p) { remove_all(*p); } };
 		
 		FileDataStore ds(tmpPath.c_str());
 		Repository repo(&ds);
@@ -186,7 +191,8 @@ TEST(RepositoryTests, SnapshotTest)
 		std::unique_ptr<Snapshot> snapshot(repo.createSnapshot());
 		
 		path tmpFile = unique_path();
-		scopedExit([tmpFile] { remove_all(tmpFile); });
+		std::unique_ptr<path, std::function<void (path *)>>
+			onExit2{ &tmpFile, [](path *p) { remove_all(*p); } };
 
 		FileStream fout(tmpFile.c_str(), FileMode::Write);
 		fout.writeType<uint8_t>(0);

@@ -25,7 +25,6 @@ extern "C" {
 #include "compat/stdlib.h"
 #include "compat/string.h"
 }
-#include "ScopedExit.h"
 #include "FileInfo.h"
 #include "RollingHash.h"
 #include "EncryptedOutputStream.h"

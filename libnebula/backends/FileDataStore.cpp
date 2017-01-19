@@ -24,7 +24,6 @@
 #include "libnebula/InputStream.h"
 #include "libnebula/DataStore.h"
 #include "libnebula/Exception.h"
-#include "libnebula/ScopedExit.h"
 
 
 namespace Nebula
@@ -49,7 +48,7 @@ namespace Nebula
 		
 		filesystem::path fullPath = mStoreDirectory / path;
 		
-		FILE *fp = fopen(fullPath.c_str(), "rb");
+		std::unique_ptr<FILE, decltype(fclose) *> fp(fopen(fullPath.c_str(), "rb"), fclose);
 		if(!fp) {
 			switch(errno) {
 				case ENOENT: throw FileNotFoundException(fullPath.string() + ": File not found."); break;
@@ -58,15 +57,13 @@ namespace Nebula
 		}
 		
 		long fileSize = filesystem::file_size(fullPath);
-		
-		scopedExit([fp] { fclose(fp); });
 
 		progress(0, fileSize);
 
 		char buffer[4096];
 		ssize_t n;
 		long bytesRead = 0;
-		while((n = fread(buffer, 1, sizeof(buffer), fp)) > 0) {
+		while((n = fread(buffer, 1, sizeof(buffer), fp.get())) > 0) {
 
 			if(!progress(bytesRead, fileSize)) {
 				throw CancelledException("User cancelled.");
@@ -77,7 +74,7 @@ namespace Nebula
 			stream.write(buffer, (size_t)n);
 		}
 
-		if(n == 0 && ferror(fp)) {
+		if(n == 0 && ferror(fp.get())) {
 			throw FileIOException(fullPath.string() + ": Read error.");
 		}
 
@@ -95,28 +92,25 @@ namespace Nebula
 			filesystem::create_directories(fullPath.parent_path());
 		}
 		
-		FILE *fp = fopen(fullPath.c_str(), "wb");
+		std::unique_ptr<FILE, decltype(fclose) *> fp(fopen(fullPath.c_str(), "wb"), fclose);
 		if(!fp) {
 			throw FileIOException(fullPath.string() + ": " + strerror(errno));
 		}
-
-		scopedExit([fp] { if(fp) fclose(fp); });
 
 		long fileSize = -1;
 		long bytesRead = 0;
 		size_t n;
 		char buffer[4096];
 		while((n = stream.read(buffer, sizeof(buffer))) > 0) {
-			if(fwrite(buffer, 1, n, fp) < n) {
-				if(ferror(fp)) {
+			if(fwrite(buffer, 1, n, fp.get()) < n) {
+				if(ferror(fp.get())) {
 					throw FileIOException(fullPath.string() + ": Write error.");
 				}
 			}
 			
 			// if cancel has been requested, remove the in progress file
 			if(!progress(bytesRead, fileSize)) {
-				fclose(fp);
-				fp = nullptr;
+				fclose(fp.release());
 				filesystem::remove(fullPath);
 				throw CancelledException("User cancelled.");
 			}
@@ -147,7 +141,6 @@ namespace Nebula
 	bool FileDataStore::unlink(const char *path, ProgressFunction progress)
 	{
 		using namespace boost;
-
 		
 		filesystem::path fullPath = mStoreDirectory / path;
 		if(!filesystem::remove(fullPath)) {

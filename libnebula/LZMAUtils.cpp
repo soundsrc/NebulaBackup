@@ -15,10 +15,11 @@
  */
 #include "LZMAUtils.h"
 #include <stdlib.h>
+#include <memory>
+#include <type_traits>
 #include "Lzma2Enc.h"
 #include "Lzma2Dec.h"
 #include "Exception.h"
-#include "ScopedExit.h"
 #include "InputStream.h"
 #include "OutputStream.h"
 
@@ -78,26 +79,26 @@ namespace Nebula
 		{
 			LzmaAlloc alloc;
 			
-			CLzma2EncHandle enc = Lzma2Enc_Create(&alloc, &alloc);
-			scopedExit([&enc] { Lzma2Enc_Destroy(enc); });
-			
+			std::unique_ptr<std::remove_pointer<CLzma2EncHandle>::type, decltype(Lzma2Enc_Destroy) *>
+				enc( Lzma2Enc_Create(&alloc, &alloc), Lzma2Enc_Destroy );
+
 			CLzma2EncProps props;
 			Lzma2EncProps_Init(&props);
 			props.lzmaProps.writeEndMark = 1;
 			props.lzmaProps.level = 9;
 			
-			if(Lzma2Enc_SetProps(enc, &props) != SZ_OK) {
+			if(Lzma2Enc_SetProps(enc.get(), &props) != SZ_OK) {
 				throw LZMAException("Failed to set ZLMA2 prop.");
 			}
 
-			Byte prop = Lzma2Enc_WriteProperties(enc);
+			Byte prop = Lzma2Enc_WriteProperties(enc.get());
 			outStream.write(&prop, sizeof(prop));
 			
 			LzmaOutputStream out(outStream);
 			LzmaInputStream in(inStream);
 			LZMAProgress prog(progress);
 
-			if(Lzma2Enc_Encode(enc, &out, &in, &prog) != SZ_OK) {
+			if(Lzma2Enc_Encode(enc.get(), &out, &in, &prog) != SZ_OK) {
 				throw LZMAException("Failed to compress.");
 			}
 		}

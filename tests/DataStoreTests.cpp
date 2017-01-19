@@ -13,10 +13,10 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
+#include <string.h>
 #include <memory>
 #include <set>
 #include <vector>
-#include <string.h>
 #include <boost/filesystem.hpp>
 #include "libnebula/Exception.h"
 #include "libnebula/DataStore.h"
@@ -24,7 +24,6 @@
 #include "libnebula/MemoryInputStream.h"
 #include "libnebula/MemoryOutputStream.h"
 #include "libnebula/Repository.h"
-#include "libnebula/ScopedExit.h"
 #include "gtest/gtest.h"
 
 TEST(DataStoreTests, PutAndGet) {
@@ -36,7 +35,8 @@ TEST(DataStoreTests, PutAndGet) {
 	EXPECT_TRUE( create_directory(tmpPath) );
 	
 	{
-		scopedExit([tmpPath] { remove_all(tmpPath); });
+		std::unique_ptr<path, std::function<void (path *)>>
+			onExit{ &tmpPath, [](path *p) { remove_all(*p); } };
 
 		FileDataStore ds(tmpPath.c_str());
 
@@ -67,7 +67,8 @@ TEST(DataStoreTests, PutAndGetWithSubPaths) {
 	EXPECT_TRUE( create_directory(tmpPath) );
 	
 	{
-		scopedExit([tmpPath] { remove_all(tmpPath); });
+		std::unique_ptr<path, std::function<void (path *)>>
+			onExit{ &tmpPath, [](path *p) { remove_all(*p); } };
 		
 		FileDataStore ds(tmpPath.c_str());
 		
@@ -97,7 +98,8 @@ TEST(DataStoreTests, Existance) {
 	EXPECT_TRUE( create_directory(tmpPath) );
 	
 	{
-		scopedExit([tmpPath] { remove_all(tmpPath); });
+		std::unique_ptr<path, std::function<void (path *)>>
+			onExit{ &tmpPath, [](path *p) { remove_all(*p); } };
 		
 		FileDataStore ds(tmpPath.c_str());
 		
@@ -139,7 +141,8 @@ TEST(DataStoreTests, GetNotEnoughSpace) {
 	EXPECT_TRUE( create_directory(tmpPath) );
 	
 	{
-		scopedExit([tmpPath] { remove_all(tmpPath); });
+		std::unique_ptr<path, std::function<void (path *)>>
+			onExit{ &tmpPath, [](path *p) { remove_all(*p); } };
 		
 		FileDataStore ds(tmpPath.c_str());
 		
@@ -168,7 +171,9 @@ TEST(DataStoreTests, List) {
 	EXPECT_TRUE( create_directory(tmpPath) );
 	
 	{
-		scopedExit([tmpPath] { remove_all(tmpPath); });
+		std::unique_ptr<path, std::function<void (path *)>>
+			onExit{ &tmpPath, [](path *p) { remove_all(*p); } };
+
 		uint8_t buffer[32];
 		arc4random_buf(buffer, sizeof(buffer));
 		
@@ -296,7 +301,8 @@ TEST(DataStoreTests, Deletion) {
 	EXPECT_TRUE( create_directory(tmpPath) );
 	
 	{
-		scopedExit([tmpPath] { remove_all(tmpPath); });
+		std::unique_ptr<path, std::function<void (path *)>>
+			onExit{ &tmpPath, [](path *p) { remove_all(*p); } };
 		
 		FileDataStore ds(tmpPath.c_str());
 

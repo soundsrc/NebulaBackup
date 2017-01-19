@@ -33,7 +33,6 @@
 #include "Repository.h"
 #include "LZMAUtils.h"
 #include "EncryptedOutputStream.h"
-#include "ScopedExit.h"
 #include "RollingHash.h"
 
 namespace Nebula

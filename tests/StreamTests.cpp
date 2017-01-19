@@ -24,7 +24,6 @@ extern "C" {
 #include "compat/string.h"
 }
 #include "libnebula/TempFileStream.h"
-#include "libnebula/ScopedExit.h"
 #include "libnebula/Exception.h"
 #include "libnebula/LZMAUtils.h"
 #include "libnebula/LZMAInputStream.h"
@@ -139,7 +138,8 @@ TEST(StreamTests, FileStreamReadWrite)
 		size_t bufferSize = 1 + (rand() % 1024);
 
 		FileStream fp(tmpPath.c_str(), FileMode::Write);
-		scopedExit([tmpPath] { filesystem::remove(tmpPath); });
+		std::unique_ptr<filesystem::path, std::function<void (filesystem::path *)>>
+			onExit{ &tmpPath, [](filesystem::path *p) { remove_all(*p); } };
 		testReadWriteStream(fp, size,
 							[tmpPath]() -> InputStream * {
 								return new FileStream(tmpPath.c_str(), FileMode::Read);

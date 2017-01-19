@@ -159,7 +159,6 @@ add_library(Nebula SHARED
 	"libnebula/Repository.h"
 	"libnebula/RollingHash.cpp"
 	"libnebula/RollingHash.h"
-	"libnebula/ScopedExit.h"
 	"libnebula/Snapshot.cpp"
 	"libnebula/Snapshot.h"
 	"libnebula/StreamUtils.cpp"

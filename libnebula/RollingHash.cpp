@@ -19,7 +19,6 @@
 #include <string.h>
 #include <memory>
 #include <openssl/evp.h>
-#include "ScopedExit.h"
 #include "Exception.h"
 
 namespace Nebula

@@ -16,7 +16,7 @@
 #include "StreamUtils.h"
 #include <openssl/hmac.h>
 #include <openssl/sha.h>
-#include "ScopedExit.h"
+#include <memory>
 #include "MultiInputStream.h"
 #include "LZMAInputStream.h"
 #include "Exception.h"
@@ -65,7 +65,8 @@ namespace Nebula
 		// take the HMAC of the encrypted stream
 		HMAC_CTX hctx;
 		HMAC_CTX_init(&hctx);
-		scopedExit([&hctx] { HMAC_CTX_cleanup(&hctx); });
+		std::unique_ptr<HMAC_CTX, decltype(HMAC_CTX_cleanup) *>
+			onExit(&hctx, HMAC_CTX_cleanup);
 		
 		if(!HMAC_Init(&hctx, macKey, SHA256_DIGEST_LENGTH, EVP_sha256())) {
 			throw EncryptionFailedException("Failed to initialize HMAC.");
@@ -101,7 +102,8 @@ namespace Nebula
 		
 		HMAC_CTX hctx;
 		HMAC_CTX_init(&hctx);
-		scopedExit([&hctx] { HMAC_CTX_cleanup(&hctx); });
+		std::unique_ptr<HMAC_CTX, decltype(HMAC_CTX_cleanup) *>
+			onExit(&hctx, HMAC_CTX_cleanup);
 		
 		if(!HMAC_Init(&hctx, macKey, SHA256_DIGEST_LENGTH, EVP_sha256())) {
 			throw EncryptionFailedException("Failed to initialize HMAC.");
