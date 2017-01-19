@@ -130,6 +130,7 @@ target_include_directories(lzma PUBLIC
 add_library(Nebula SHARED 
 	"libnebula/BufferedInputStream.cpp"
 	"libnebula/BufferedInputStream.h"
+	"libnebula/CompressionType.h"
 	"libnebula/DataStore.h"
 	"libnebula/DecryptedInputStream.cpp"
 	"libnebula/DecryptedInputStream.h"

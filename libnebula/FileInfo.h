@@ -40,6 +40,8 @@ namespace Nebula
 		
 		bool exists() const { return mType != FileType::FileNotFound; }
 
+		std::string extension() const { return mExtension; }
+
 		FileType type() const { return mType; }
 
 		unsigned int mode() const { return mMode; }
@@ -58,6 +60,8 @@ namespace Nebula
 		unsigned int mUid;
 		unsigned int mGid;
 		
+		std::string mExtension;
+
 		std::string mUserName;
 		std::string mGroupName;
 		

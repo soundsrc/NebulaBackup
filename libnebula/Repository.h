@@ -22,6 +22,7 @@
 #include <inttypes.h>
 #include "ProgressFunction.h"
 #include "Snapshot.h"
+#include "CompressionType.h"
 
 namespace Nebula
 {
@@ -117,7 +118,7 @@ namespace Nebula
 		
 		struct MallocDeletor;
 
-		void compressEncryptAndUploadBlock(const uint8_t *block, size_t size, uint8_t *outhmac, ProgressFunction progress);
+		void compressEncryptAndUploadBlock(CompressionType compressType, const uint8_t *block, size_t size, uint8_t *outhmac, ProgressFunction progress);
 		
 		char nibbleToHex(uint8_t nb) const;
 		int hexToNibble(char h) const;

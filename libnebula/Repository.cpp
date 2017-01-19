@@ -40,6 +40,7 @@ extern "C" {
 #include "MemoryOutputStream.h"
 #include "MemoryInputStream.h"
 #include "LZMAUtils.h"
+#include "CompressionType.h"
 #include "StreamUtils.h"
 
 namespace Nebula
@@ -222,7 +223,7 @@ namespace Nebula
 		mDataStore->get((std::string("/snapshot/") + name).c_str(), tmpSnapshotStream, progress);
 		
 		TempFileStream snapshotStream;
-		StreamUtils::decompressDecryptHMAC(EVP_aes_256_cbc(), mEncKey, mMacKey, *tmpSnapshotStream.inputStream(), snapshotStream);
+		StreamUtils::decompressDecryptHMAC(CompressionType::LZMA2, EVP_aes_256_cbc(), mEncKey, mMacKey, *tmpSnapshotStream.inputStream(), snapshotStream);
 		snapshot->load(*snapshotStream.inputStream());
 		
 		return snapshot.release();
@@ -232,11 +233,11 @@ namespace Nebula
 	{
 		TempFileStream tmpStream;
 		snapshot->save(tmpStream);
-		auto snapshotStream = StreamUtils::compressEncryptHMAC(EVP_aes_256_cbc(), mEncKey, mMacKey, *tmpStream.inputStream());
+		auto snapshotStream = StreamUtils::compressEncryptHMAC(CompressionType::LZMA2, EVP_aes_256_cbc(), mEncKey, mMacKey, *tmpStream.inputStream());
 		mDataStore->put((std::string("/snapshot/") + name).c_str(), *snapshotStream, progress);
 	}
 	
-	void Repository::compressEncryptAndUploadBlock(const uint8_t *block, size_t size, uint8_t *outhmac, ProgressFunction progress)
+	void Repository::compressEncryptAndUploadBlock(CompressionType compressType, const uint8_t *block, size_t size, uint8_t *outhmac, ProgressFunction progress)
 	{
 		// take the plain text HMAC and that is the block file name
 		if(!HMAC(EVP_sha256(), mHashKey, SHA256_DIGEST_LENGTH, block, size, outhmac, nullptr)) {
@@ -250,7 +251,7 @@ namespace Nebula
 		}
 		
 		MemoryInputStream blockStream(block, size);
-		auto encryptedStream = StreamUtils::compressEncryptHMAC(EVP_aes_256_cbc(), mEncKey, mMacKey, blockStream);
+		auto encryptedStream = StreamUtils::compressEncryptHMAC(compressType, EVP_aes_256_cbc(), mEncKey, mMacKey, blockStream);
 		
 		mDataStore->put(uploadPath.c_str(), *encryptedStream, progress);
 	}
@@ -259,6 +260,8 @@ namespace Nebula
 	{
 		using namespace boost;
 		
+		CompressionType compressionType = CompressionType::LZMA2;
+
 		RollingHash rh(mRollKey, 8192);
 		uint8_t fileSHA256[SHA256_DIGEST_LENGTH];
 	
@@ -293,7 +296,7 @@ namespace Nebula
 			}
 			
 			Snapshot::BlockHash blockHash;
-			compressEncryptAndUploadBlock(buffer.get(), fileLength, blockHash.hmac256, progress);
+			compressEncryptAndUploadBlock(compressionType, buffer.get(), fileLength, blockHash.hmac256, progress);
 			blockHashes.push_back(blockHash);
 			
 		} else {
@@ -321,7 +324,7 @@ namespace Nebula
 					
 					Snapshot::BlockHash blockHash;
 					// upload block
-					compressEncryptAndUploadBlock(&blockBuffer[0], blockBuffer.size(), blockHash.hmac256, progress);
+					compressEncryptAndUploadBlock(compressionType, &blockBuffer[0], blockBuffer.size(), blockHash.hmac256, progress);
 					blockHashes.push_back(blockHash);
 					blockBuffer.clear();
 				}
@@ -332,7 +335,7 @@ namespace Nebula
 				if(!SHA256_Update(&sha256, &blockBuffer[0], blockBuffer.size())) {
 					throw EncryptionFailedException("SHA256_Update failed.");
 				}
-				compressEncryptAndUploadBlock(&blockBuffer[0], blockBuffer.size(), blockHash.hmac256, progress);
+				compressEncryptAndUploadBlock(compressionType, &blockBuffer[0], blockBuffer.size(), blockHash.hmac256, progress);
 				blockHashes.push_back(blockHash);
 			}
 		}
@@ -348,6 +351,7 @@ namespace Nebula
 							   fileInfo.groupName().c_str(),
 							   fileInfo.type(),
 							   fileInfo.mode(),
+							   compressionType,
 							   fileInfo.length(),
 							   fileInfo.lastModifyTime(),
 							   blockSizeLog,
@@ -373,7 +377,7 @@ namespace Nebula
 			TempFileStream tmpStream;
 			mDataStore->get(objectPath.c_str(), tmpStream);
 
-			StreamUtils::decompressDecryptHMAC(EVP_aes_256_cbc(), mEncKey, mMacKey, *tmpStream.inputStream(), fileStream);
+			StreamUtils::decompressDecryptHMAC((CompressionType)fe->compression, EVP_aes_256_cbc(), mEncKey, mMacKey, *tmpStream.inputStream(), fileStream);
 		}
 		
 		return true;

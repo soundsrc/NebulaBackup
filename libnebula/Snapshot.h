@@ -27,6 +27,7 @@
 #include "FileInfo.h"
 #include "ZeroedString.h"
 #include "ZeroedAllocator.h"
+#include "CompressionType.h"
 
 namespace Nebula
 {
@@ -55,6 +56,7 @@ namespace Nebula
 			int userIndex; // unix user id
 			int groupIndex; // unix group name
 			uint16_t mode; // mode
+			uint8_t compression;
 			uint64_t size; // size of file in bytes
 			time_t mtime; // modify time
 			uint8_t type; // flags
@@ -69,6 +71,7 @@ namespace Nebula
 						  const char *group,
 						  FileType type,
 						  uint16_t mode,
+						  CompressionType compression,
 						  uint64_t size,
 						  time_t mtime,
 						  uint8_t blockSizeLog,

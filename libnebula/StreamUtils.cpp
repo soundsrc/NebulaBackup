@@ -21,6 +21,7 @@
 #include "LZMAInputStream.h"
 #include "Exception.h"
 #include "TempFileStream.h"
+#include "CompressionType.h"
 #include "EncryptedOutputStream.h"
 #include "DecryptedInputStream.h"
 #include "MemoryInputStream.h"
@@ -53,11 +54,21 @@ namespace Nebula
 		return mInputStream.read(data, size);
 	}
 	
-	std::shared_ptr<InputStream> StreamUtils::compressEncryptHMAC(const EVP_CIPHER *cipher, const uint8_t *encKey, const uint8_t *macKey, InputStream& inStream)
+	std::shared_ptr<InputStream> StreamUtils::compressEncryptHMAC(CompressionType compressType, const EVP_CIPHER *cipher, const uint8_t *encKey, const uint8_t *macKey, InputStream& inStream)
 	{
 		std::shared_ptr<TempFileStream> tmpStream = std::make_shared<TempFileStream>();
 		EncryptedOutputStream encStream(*tmpStream, cipher, encKey);
-		LZMAUtils::compress(inStream, encStream, nullptr);
+		switch(compressType) {
+			case CompressionType::NoCompression:
+				inStream.copyTo(encStream);
+				break;
+			case CompressionType::LZMA2:
+				LZMAUtils::compress(inStream, encStream, nullptr);
+				break;
+			default:
+				throw InvalidArgumentException("Invalid compression type.");
+		}
+		
 		encStream.close();
 
 		auto encryptedStream = tmpStream->inputStream();
@@ -90,7 +101,7 @@ namespace Nebula
 		return std::make_shared<EncryptedHMACStream>(hmac, tmpStream, encryptedStream);
 	}
 
-	void StreamUtils::decompressDecryptHMAC(const EVP_CIPHER *cipher, const uint8_t *encKey, const uint8_t *macKey, InputStream& inStream, OutputStream& outStream)
+	void StreamUtils::decompressDecryptHMAC(CompressionType compressType, const EVP_CIPHER *cipher, const uint8_t *encKey, const uint8_t *macKey, InputStream& inStream, OutputStream& outStream)
 	{
 		if(!inStream.canRewind()) {
 			throw InvalidArgumentException("Input stream must be rewindable.");
@@ -130,9 +141,22 @@ namespace Nebula
 		inStream.rewind();
 		inStream.readExpected(hmac1, sizeof(hmac1));
 
-		DecryptedInputStream decStream(inStream, EVP_aes_256_cbc(), encKey);
-		LZMAInputStream lzStream(decStream);
-
-		lzStream.copyTo(outStream);
+		switch(compressType) {
+			case CompressionType::NoCompression:
+			{
+				DecryptedInputStream decStream(inStream, EVP_aes_256_cbc(), encKey);
+				decStream.copyTo(outStream);
+			}
+				break;
+			case CompressionType::LZMA2:
+			{
+				DecryptedInputStream decStream(inStream, EVP_aes_256_cbc(), encKey);
+				LZMAInputStream lzStream(decStream);
+				lzStream.copyTo(outStream);
+			}
+				break;
+			default:
+				throw InvalidArgumentException("Invalid compression type.");
+		}
 	}
 }

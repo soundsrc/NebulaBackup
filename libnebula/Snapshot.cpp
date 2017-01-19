@@ -50,6 +50,7 @@ namespace Nebula
 					  const char *group,
 					  FileType type,
 					  uint16_t mode,
+					  CompressionType compression,
 					  uint64_t size,
 					  time_t mtime,
 					  uint8_t blockSizeLog,
@@ -65,6 +66,7 @@ namespace Nebula
 		fe.groupIndex = insertStringTable(group);
 		fe.type = (uint8_t)type;
 		fe.mode = mode;
+		fe.compression = (uint8_t)compression;
 		fe.size = size;
 		fe.mtime = mtime;
 		fe.blockSizeLog = blockSizeLog;
@@ -155,7 +157,8 @@ namespace Nebula
 			fe.userIndex = inStream.readType<uint32_t>();
 			fe.groupIndex = inStream.readType<uint32_t>();
 			fe.mode = inStream.readType<uint16_t>();
-			inStream.readType<uint16_t>();
+			fe.compression = inStream.readType<uint8_t>();
+			inStream.readType<uint8_t>();
 			fe.type = inStream.readType<uint8_t>();
 			fe.blockSizeLog = inStream.readType<uint8_t>();
 			fe.numBlocks = inStream.readType<uint16_t>();
@@ -191,7 +194,8 @@ namespace Nebula
 			outStream.writeType<uint32_t>(fe.userIndex);
 			outStream.writeType<uint32_t>(fe.groupIndex);
 			outStream.writeType<uint16_t>(fe.mode);
-			outStream.writeType<uint16_t>(0);
+			outStream.writeType<uint8_t>(fe.compression);
+			outStream.writeType<uint8_t>(0);
 			outStream.writeType<uint8_t>(fe.type);
 			outStream.writeType<uint8_t>(fe.blockSizeLog);
 			outStream.writeType<uint16_t>(fe.numBlocks);

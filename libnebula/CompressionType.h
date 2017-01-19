@@ -16,18 +16,11 @@
 
 #pragma once
 
-#include <memory>
-#include <stdint.h>
-#include <openssl/evp.h>
-#include "CompressionType.h"
-
 namespace Nebula
 {
-	class InputStream;
-	class OutputStream;
-	namespace StreamUtils
+	enum class CompressionType
 	{
-		std::shared_ptr<InputStream> compressEncryptHMAC(CompressionType compressType, const EVP_CIPHER *cipher, const uint8_t *encKey, const uint8_t *macKey, InputStream& inStream);
-		void decompressDecryptHMAC(CompressionType compressType, const EVP_CIPHER *cipher, const uint8_t *encKey, const uint8_t *macKey, InputStream& inStream, OutputStream& outStream);
-	}
+		NoCompression = 0,
+		LZMA2 = 1
+	};
 }

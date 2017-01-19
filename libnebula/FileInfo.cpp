@@ -28,6 +28,9 @@ namespace Nebula
 	FileInfo::FileInfo(const char *path)
 	: mType(FileType::FileNotFound)
 	{
+		using namespace boost;
+
+		mExtension = filesystem::path(path).extension().string();
 #ifndef _WIN32
 		/* On posix systems, use stat() to obtain file info */
 		 
@@ -64,8 +67,6 @@ namespace Nebula
 			case S_IFSOCK: mType = FileType::Socket; break;
 		}
 #else
-		using namespace boost;
-
 		filesystem::file_status st = filesystem::status(path);
 		switch(st.type()) {
 			default:
@@ -91,5 +92,4 @@ namespace Nebula
 		mLastModifyTime = filesystem::last_write_time(path);
 #endif
 	}
-
 }
