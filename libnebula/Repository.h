@@ -118,7 +118,8 @@ namespace Nebula
 		
 		struct MallocDeletor;
 
-		void compressEncryptAndUploadBlock(CompressionType compressType, const uint8_t *block, size_t size, uint8_t *outhmac, ProgressFunction progress);
+		void computeBlockHMAC(const uint8_t *block, size_t size, uint8_t compression, uint8_t *outHMAC);
+		void compressEncryptAndUploadBlock(CompressionType compressType, const uint8_t *blockHMAC, const uint8_t *block, size_t size, ProgressFunction progress);
 		
 		char nibbleToHex(uint8_t nb) const;
 		int hexToNibble(char h) const;

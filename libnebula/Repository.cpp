@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string>
+#include <set>
 #include <boost/filesystem.hpp>
 #include <openssl/evp.h>
 #include <openssl/sha.h>
@@ -237,15 +238,33 @@ namespace Nebula
 		mDataStore->put((std::string("/snapshot/") + name).c_str(), *snapshotStream, progress);
 	}
 	
-	void Repository::compressEncryptAndUploadBlock(CompressionType compressType, const uint8_t *block, size_t size, uint8_t *outhmac, ProgressFunction progress)
+	void Repository::computeBlockHMAC(const uint8_t *block, size_t size, uint8_t compression, uint8_t *outHMAC)
 	{
-		// take the plain text HMAC and that is the block file name
-		if(!HMAC(EVP_sha256(), mHashKey, SHA256_DIGEST_LENGTH, block, size, outhmac, nullptr)) {
-			throw EncryptionFailedException("Failed to HMAC block.");
+		HMAC_CTX ctx;
+		std::unique_ptr<HMAC_CTX, decltype(HMAC_CTX_cleanup) *> onExit(&ctx, HMAC_CTX_cleanup);
+
+		if(!HMAC_Init(&ctx, mHashKey, SHA256_DIGEST_LENGTH, EVP_sha256())) {
+			throw EncryptionFailedException("HMAC_Init failed.");
 		}
 		
+		// hmac which compression is used since that changes the block data
+		if(!HMAC_Update(&ctx, &compression, sizeof(compression))) {
+			throw EncryptionFailedException("HMAC_Update failed.");
+		}
+		
+		if(!HMAC_Update(&ctx, block, size)) {
+			throw EncryptionFailedException("HMAC_Update failed.");
+		}
+		
+		if(!HMAC_Final(&ctx, outHMAC, nullptr)) {
+			throw EncryptionFailedException("HMAC_Final failed.");
+		}
+	}
+	
+	void Repository::compressEncryptAndUploadBlock(CompressionType compressType, const uint8_t *blockHMAC, const uint8_t *block, size_t size, ProgressFunction progress)
+	{
 		// if the block already exists in the repository, skip the upload
-		std::string uploadPath = "/data/" + hmac256ToString(outhmac);
+		std::string uploadPath = "/data/" + hmac256ToString(blockHMAC);
 		if(mDataStore->exist(uploadPath.c_str())) {
 			return;
 		}
@@ -255,7 +274,7 @@ namespace Nebula
 		
 		mDataStore->put(uploadPath.c_str(), *encryptedStream, progress);
 	}
-
+	
 	void Repository::uploadFile(Snapshot *snapshot, const char *destPath, FileStream& fileStream, ProgressFunction progress)
 	{
 		using namespace boost;
@@ -280,6 +299,26 @@ namespace Nebula
 		
 		size_t fileLength = fileInfo.length();
 		int blockSizeLog = 0;
+		
+		std::string ext = fileInfo.extension();
+		std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+
+		// default extension exclusion list from compression
+		// helps speed up things since these types generally don't compress well
+		static std::set<std::string> noCompressExt = {
+			".png", ".jpg", ".jpeg", ".gif",
+			".mov",	".mkv",	".avi",	".mp2",	".mp3",	".mp4",
+			".mpg",	".m4a",	".m4v",	".3gp",	".3gpp", ".3g2", ".3gpp2",
+			".wma",	".wmv",
+			".ogg",	".aac",
+			".zip",	".gz", ".bz2", ".xz", ".lz", ".lzo", ".lzma",
+			".z", ".7z", ".s7z", ".rar",
+			".apk", ".ipa", ".jar"
+		};
+		
+		if(noCompressExt.find(ext) != noCompressExt.end()) {
+			compressionType = CompressionType::NoCompression;
+		}
 
 		// don't bother with splitting the file if it's < 1MB
 		// just upload as is
@@ -296,7 +335,8 @@ namespace Nebula
 			}
 			
 			Snapshot::BlockHash blockHash;
-			compressEncryptAndUploadBlock(compressionType, buffer.get(), fileLength, blockHash.hmac256, progress);
+			computeBlockHMAC(buffer.get(), fileLength, (uint8_t)compressionType, blockHash.hmac256);
+			compressEncryptAndUploadBlock(compressionType, blockHash.hmac256, buffer.get(), fileLength, progress);
 			blockHashes.push_back(blockHash);
 			
 		} else {
@@ -324,7 +364,8 @@ namespace Nebula
 					
 					Snapshot::BlockHash blockHash;
 					// upload block
-					compressEncryptAndUploadBlock(compressionType, &blockBuffer[0], blockBuffer.size(), blockHash.hmac256, progress);
+					computeBlockHMAC(&blockBuffer[0], blockBuffer.size(), (uint8_t)compressionType, blockHash.hmac256);
+					compressEncryptAndUploadBlock(compressionType, blockHash.hmac256, &blockBuffer[0], blockBuffer.size(), progress);
 					blockHashes.push_back(blockHash);
 					blockBuffer.clear();
 				}
@@ -335,7 +376,9 @@ namespace Nebula
 				if(!SHA256_Update(&sha256, &blockBuffer[0], blockBuffer.size())) {
 					throw EncryptionFailedException("SHA256_Update failed.");
 				}
-				compressEncryptAndUploadBlock(compressionType, &blockBuffer[0], blockBuffer.size(), blockHash.hmac256, progress);
+				
+				computeBlockHMAC(&blockBuffer[0], blockBuffer.size(), (uint8_t)compressionType, blockHash.hmac256);
+				compressEncryptAndUploadBlock(compressionType, blockHash.hmac256, &blockBuffer[0], blockBuffer.size(), progress);
 				blockHashes.push_back(blockHash);
 			}
 		}
