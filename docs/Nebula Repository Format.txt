@@ -24,10 +24,10 @@ Nebula Repository Format
 	  - decryptedKeyBlock = AES256_CBC(K, iv, keyBlock)
 
 /snapshots/<snapshot-name>:
-	snapshots are compressed LZMA
+	snapshots are compressed LZMA2
 
 	uncompressedSize  u32     Uncompressed size
-	hmac              u8[32]  HMAC(macKey, LZMA(data))
+	hmac              u8[32]  HMAC(macKey, LZMA2(data))
 	data              u8[...] 
 	{
 		numFiles          u32   Number of files
@@ -44,7 +44,8 @@ Nebula Repository Format
 			uid             u32      User ID (index in the string table)
 			gid             u32      Group ID (index in the string table)
 			mode            u16      UNIX permission mode
-			reserved        u16
+			compression		u8       Compression type (0 = uncompressed, 1 = LZMA2)
+			reserved        u8
 			type            u8       Type
 			blockSizeLog    u8       Block size in 2^i (2^blockSizeLog)
 			numBlocks       u16      Number of blocks in the file
