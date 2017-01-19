@@ -60,6 +60,10 @@ namespace Nebula
 	{
 		std::lock_guard<std::recursive_mutex> lock(mMutex);
 		
+		if(numBlocks > std::numeric_limits<uint16_t>::max()) {
+			throw InvalidArgumentException("Too many blocks. Try a bigger block size.");
+		}
+
 		FileEntry fe;
 		fe.pathIndex = insertStringTable(path);
 		fe.userIndex = insertStringTable(user);
