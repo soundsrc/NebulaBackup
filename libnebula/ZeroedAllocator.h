@@ -50,7 +50,7 @@ namespace Nebula
 		
 		void deallocate(pointer p, size_type n)
 		{
-			explicit_bzero(p, n);
+			explicit_bzero(p, n * sizeof(T));
 			::operator delete(p);
 		}
 	};
