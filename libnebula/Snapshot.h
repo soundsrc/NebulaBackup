@@ -94,17 +94,8 @@ namespace Nebula
 		const char *indexToString(int n) const;
 		const BlockHash *indexToBlockHash(int n) const;
 	private:
-
-		class StringComparer
-		{
-		public:
-			bool operator ()(const char *a, const char *b) const {
-				return strcmp(a, b) < 0;
-			}
-		};
-
 		//
-		std::map<const char *, int, StringComparer> mStringTable;
+		std::map<std::string, int> mStringTable;
 		std::vector<char, ZeroedAllocator<char>> mStringBuffer;
 		std::vector<BlockHash, ZeroedAllocator<BlockHash>> mBlockHashes;
 		std::map<std::string, FileEntry, std::less<std::string>, ZeroedAllocator<FileEntry>> mFiles;

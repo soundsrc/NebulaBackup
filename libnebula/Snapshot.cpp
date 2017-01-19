@@ -235,7 +235,7 @@ namespace Nebula
 
 		size_t n = strlen(str) + 1;
 		int idx = mStringBuffer.size();
-		mStringBuffer.resize((mStringBuffer.size() + n + 3) & ~3);
+		mStringBuffer.resize((idx + n + 3) & ~3);
 		strncpy(&mStringBuffer[idx], str, n);
 
 		mStringTable[str] = idx;
