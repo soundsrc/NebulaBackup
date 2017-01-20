@@ -389,8 +389,11 @@ namespace Nebula
 			throw EncryptionFailedException("SHA256_Final failed.");
 		}
 		
+		// normalize destPath
+		filesystem::path normalizedPath = filesystem::path(destPath).relative_path().lexically_normal();
+		
 		// update the index
-		snapshot->addFileEntry(destPath,
+		snapshot->addFileEntry(normalizedPath.c_str(),
 							   fileInfo.userName().c_str(),
 							   fileInfo.groupName().c_str(),
 							   fileInfo.type(),
