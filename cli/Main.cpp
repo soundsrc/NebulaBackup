@@ -39,8 +39,7 @@ static void printHelp()
 {
 	printf("usage: NebulaBackup [options] init <repo>\n");
 	printf("       NebulaBackup [options] backup <repo> <snapshot> <file> [<file>...]\n");
-	printf("       NebulaBackup [options] restore <repo> <snapshot> <destdir>\n");
-	printf("       NebulaBackup [options] download <repo> <snapshot> <file> [<file>...] <destdir>\n");
+	printf("       NebulaBackup [options] restore <repo> <snapshot> [<file>...] <destdir>\n");
 	printf("       NebulaBackup [options] list <repo>\n");
 	printf("       NebulaBackup [options] list <repo> <snapshot>\n");
 	printf("       NebulaBackup [options] delete <repo> <snapshot>\n");
@@ -299,7 +298,7 @@ static void listSnapshot(const char *repository, const char *snapshotName)
 	});
 }
 
-static void downloadFiles(const char *repository, const char *snapshotName, int argc, char *argv[])
+static void downloadFiles(const char *repository, const char *snapshotName, int argc, const char * const *argv)
 {
 	using namespace Nebula;
 	using namespace boost;
@@ -308,6 +307,12 @@ static void downloadFiles(const char *repository, const char *snapshotName, int 
 		throw InvalidArgumentException("Last argument should specify a valid directory.");
 	}
 	filesystem::path destPath = filesystem::path(argv[argc - 1]);
+
+	const char *argv2[] = { "", destPath.c_str() };
+	if(argc == 1) {
+		argv = argv2;
+		argc++;
+	}
 
 	auto dataStore = createDataStoreFromRepository(repository);
 	Repository repo(dataStore.get());
@@ -478,16 +483,12 @@ int main(int argc, char *argv[])
 				
 				backupFiles(repo, argv[optind + 2], argc - (optind + 3), argv + optind + 3);
 				break;
-			case 'd':
-				if(strcmp(action, "download") == 0) {
+			case 'r':
+				if(strcmp(action, "restore") == 0) {
 					if(optind + 3 > argc) {
 						throw InvalidArgumentException("A snapshot name must be specified.");
 					}
-					
-					if(optind + 4 > argc) {
-						throw InvalidArgumentException("Atleast 1 file must be specified.");
-					}
-					
+
 					downloadFiles(repo, argv[optind + 2], argc - (optind + 3), argv + optind + 3);
 				} else {
 					throw InvalidArgumentException(std::string("Invalid action: ") + action);
