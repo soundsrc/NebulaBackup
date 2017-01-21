@@ -78,7 +78,7 @@ namespace Nebula
 			throw FileIOException(fullPath.string() + ": Read error.");
 		}
 
-		progress(fileSize, fileSize);
+		progress(bytesRead, fileSize);
 	}
 	
 	void FileDataStore::put(const char *path, InputStream& stream, ProgressFunction progress)
@@ -101,6 +101,9 @@ namespace Nebula
 		long bytesRead = 0;
 		size_t n;
 		char buffer[4096];
+		
+		progress(0, fileSize);
+
 		while((n = stream.read(buffer, sizeof(buffer))) > 0) {
 			if(fwrite(buffer, 1, n, fp.get()) < n) {
 				if(ferror(fp.get())) {
@@ -114,9 +117,11 @@ namespace Nebula
 				filesystem::remove(fullPath);
 				throw CancelledException("User cancelled.");
 			}
+			
+			bytesRead += n;
 		}
 
-		progress(fileSize, fileSize);
+		progress(bytesRead, fileSize);
 	}
 
 	void FileDataStore::list(const char *path, std::function<void (const char *, void *)> listCallback, void *userData, ProgressFunction progress)
@@ -142,6 +147,7 @@ namespace Nebula
 	{
 		using namespace boost;
 		
+		progress(1, 1);
 		filesystem::path fullPath = mStoreDirectory / path;
 		if(!filesystem::remove(fullPath)) {
 			return false;
