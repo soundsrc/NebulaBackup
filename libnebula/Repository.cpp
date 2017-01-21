@@ -351,7 +351,6 @@ namespace Nebula
 			
 			// the block size is dynamically determined based on file length
 			// and increases bigger for larger file sizes
-			// TODO: make these values configurable
 			blockSizeLog = ceil(log(fileLength / mOptions.blockSplitCount) / log(2));
 			if(blockSizeLog < mOptions.minBlockSizeLog) blockSizeLog = mOptions.minBlockSizeLog;
 			if(blockSizeLog > mOptions.maxBlockSizeLog) blockSizeLog = mOptions.maxBlockSizeLog;
