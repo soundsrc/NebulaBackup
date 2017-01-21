@@ -339,13 +339,15 @@ namespace Nebula
 			// and increases bigger for larger file sizes
 			// TODO: make these values configurable
 			blockSizeLog = ceil(log(fileLength / 8) / log(2));
-			if(blockSizeLog  < 16) blockSizeLog  = 16;
-			if(blockSizeLog  > 25) blockSizeLog  = 25;
+			if(blockSizeLog < 16) blockSizeLog = 16;
+			if(blockSizeLog > 25) blockSizeLog = 25;
 			uint64_t hashMask = (1 << blockSizeLog) - 1;
 			
 			std::vector<uint8_t> blockBuffer;
 			blockBuffer.reserve(1 << (1 + blockSizeLog));
 			
+			long bytesCount = 0;
+
 			BufferedInputStream bufferedFile(fileStream);
 			while(!bufferedFile.isEof()) {
 				uint8_t b = bufferedFile.readByte();
@@ -359,7 +361,12 @@ namespace Nebula
 					Snapshot::BlockHash blockHash;
 					// upload block
 					computeBlockHMAC(&blockBuffer[0], blockBuffer.size(), (uint8_t)compressionType, blockHash.hmac256);
-					compressEncryptAndUploadBlock(compressionType, blockHash.hmac256, &blockBuffer[0], blockBuffer.size(), progress);
+					compressEncryptAndUploadBlock(compressionType, blockHash.hmac256, &blockBuffer[0], blockBuffer.size(),
+												  [&progress, bytesCount, fileLength](long bytesUploaded, long bytesTotal) -> bool {
+													  return progress(bytesCount + bytesUploaded, fileLength);
+												  });
+					bytesCount += blockBuffer.size();
+
 					blockHashes.push_back(blockHash);
 					blockBuffer.clear();
 				}
@@ -372,7 +379,11 @@ namespace Nebula
 				}
 				
 				computeBlockHMAC(&blockBuffer[0], blockBuffer.size(), (uint8_t)compressionType, blockHash.hmac256);
-				compressEncryptAndUploadBlock(compressionType, blockHash.hmac256, &blockBuffer[0], blockBuffer.size(), progress);
+				compressEncryptAndUploadBlock(compressionType, blockHash.hmac256, &blockBuffer[0], blockBuffer.size(),
+											  [&progress, bytesCount, fileLength](long bytesUploaded, long bytesTotal) -> bool {
+												  return progress(bytesCount + bytesUploaded, fileLength);
+											  });
+				bytesCount += blockBuffer.size();
 				blockHashes.push_back(blockHash);
 			}
 		}

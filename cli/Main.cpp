@@ -182,6 +182,45 @@ static void initializeRepository(const char *repository)
 	}
 }
 
+
+static void formatBytes(long bytes, char *outString, size_t maxLen)
+{
+	if(bytes < 1000L) {
+		snprintf(outString, maxLen, "%ld b", bytes);
+	} else if(bytes < 1000000L) {
+		snprintf(outString, maxLen, "%.2f KB", (double)bytes / 1000.0);
+	} else if(bytes < 1000000000L) {
+		snprintf(outString, maxLen, "%.2f MB", (double)bytes / 1000000.0);
+	} else if(bytes < 1000000000000L) {
+		snprintf(outString, maxLen, "%.2f GB", (double)bytes / 1000000000.0);
+	} else {
+		snprintf(outString, maxLen, "%.2f TB", (double)bytes / 1000000000000.0);
+	}
+}
+
+static void printProgress(long bytesTransferred, long bytesTotal)
+{
+	if(options.quiet) return;
+
+	long percent = bytesTransferred * 100 / bytesTotal;
+	fputs("  [", stdout);
+	int i = 0;
+	for(i = 0; i < percent; i += 5) {
+		fputc('#', stdout);
+	}
+	for(; i < 100; i += 5) {
+		fputc(' ', stdout);
+	}
+	
+	char bytesTransferredString[32];
+	char bytesTotalString[32];
+	
+	formatBytes(bytesTransferred, bytesTransferredString, sizeof(bytesTransferredString));
+	formatBytes(bytesTotal, bytesTotalString, sizeof(bytesTotalString));
+	printf("] %s / %s  \r", bytesTransferredString, bytesTotalString);
+	fflush(stdout);
+}
+
 static void backupFiles(const char *repository, const char *snapshotName, int argc, char * const *argv)
 {
 	using namespace Nebula;
@@ -210,7 +249,12 @@ static void backupFiles(const char *repository, const char *snapshotName, int ar
 					
 					if(!options.dryRun) {
 						FileStream fs(file.path().c_str(), FileMode::Read);
-						repo.uploadFile(snapshot.get(), file.path().c_str(), fs);
+						repo.uploadFile(snapshot.get(), file.path().c_str(), fs,
+							[](long bytesUploaded, long bytesTotal) -> bool {
+								printProgress(bytesUploaded, bytesTotal);
+								return true;
+							});
+						printf("\n");
 					}
 				}
 			}
@@ -220,7 +264,11 @@ static void backupFiles(const char *repository, const char *snapshotName, int ar
 			}
 			if(!options.dryRun) {
 				FileStream fs(argv[i], FileMode::Read);
-				repo.uploadFile(snapshot.get(), argv[i], fs);
+				repo.uploadFile(snapshot.get(), argv[i], fs, [](long bytesDownloaded, long bytesTotal) -> bool {
+					printProgress(bytesDownloaded, bytesTotal);
+					return true;
+				});
+				printf("\n");
 			}
 		}
 	}
