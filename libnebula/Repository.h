@@ -108,7 +108,7 @@ namespace Nebula
 		void commitSnapshot(Snapshot *snapshot, const char *name, ProgressFunction progress = DefaultProgressFunction);
 
 	private:
-		enum { MAX_LOG_ROUNDS = 26 };
+		enum { MAX_LOG_ROUNDS = 31 };
 
 		DataStore *mDataStore;
 		uint8_t *mEncKey;
