@@ -98,7 +98,7 @@ namespace Nebula
 		}
 
 		long fileSize = -1;
-		long bytesRead = 0;
+		long bytesWritten = 0;
 		size_t n;
 		char buffer[4096];
 		
@@ -112,16 +112,16 @@ namespace Nebula
 			}
 			
 			// if cancel has been requested, remove the in progress file
-			if(!progress(bytesRead, fileSize)) {
+			if(!progress(bytesWritten, fileSize)) {
 				fclose(fp.release());
 				filesystem::remove(fullPath);
 				throw CancelledException("User cancelled.");
 			}
 			
-			bytesRead += n;
+			bytesWritten += n;
 		}
 
-		progress(bytesRead, fileSize);
+		progress(bytesWritten, fileSize);
 	}
 
 	void FileDataStore::list(const char *path, std::function<void (const char *, void *)> listCallback, void *userData, ProgressFunction progress)
