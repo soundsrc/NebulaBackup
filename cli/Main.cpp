@@ -209,7 +209,7 @@ static void printProgress(int blockNo, int blockMax, long bytesTransferred, long
 	if(blockMax < 0) {
 		fprintf(stdout, "# %7d", blockNo + 1);
 	} else {
-		fprintf(stdout, "# %3d/%-3d", blockNo + 1, blockMax + 1);
+		fprintf(stdout, "# %3d/%-3d", blockNo + 1, blockMax);
 	}
 
 	fputs(" [", stdout);
@@ -432,10 +432,16 @@ static void downloadFiles(const char *repository, const char *snapshotName, int 
 				{
 					time_t startTime = time(nullptr);
 					FileStream outStream(filePath.c_str(), FileMode::Write);
-					repo.downloadFile(snapshot.get(), filename, outStream, [startTime](long bytesDownloaded, long bytesTotal) -> bool {
-						printProgress(0, 0, bytesDownloaded, bytesTotal, startTime);
-						return true;
-					});
+					int lastBlockNo = 0;
+					repo.downloadFile(snapshot.get(), filename, outStream,
+						[startTime, &lastBlockNo](int blockNo, int blockCount, long bytesDownloaded, long bytesTotal) -> bool {
+							if(lastBlockNo != blockNo) {
+								lastBlockNo = blockNo;
+								fputs("\n", stdout);
+							}
+							printProgress(blockNo, blockCount, bytesDownloaded, bytesTotal, startTime);
+							return true;
+						});
 					if(!options.quiet) printf("\n");
 				}
 				
