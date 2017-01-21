@@ -434,7 +434,7 @@ namespace Nebula
 							   &blockHashes[0]);
 	}
 	
-	bool Repository::downloadFile(Snapshot *snapshot, const char *srcPath, OutputStream& fileStream, ProgressFunction progress)
+	bool Repository::downloadFile(Snapshot *snapshot, const char *srcPath, OutputStream& fileStream, FileTransferProgressFunction progress)
 	{
 		using namespace boost;
 
@@ -442,21 +442,17 @@ namespace Nebula
 		if(!fe) {
 			return false;
 		}
-		
-		long byteCount = 0;
+
 		const Snapshot::BlockHash *blockHashes = snapshot->indexToBlockHash(fe->blockIndex);
 		for(int i = 0; i < fe->numBlocks; ++i) {
 			std::string objectPath = "/data/" + hmac256ToString(blockHashes[i].hmac256);
 
 			// download the object to tmpFile
 			TempFileStream tmpStream;
-			long blockSize = 0;
-			mDataStore->get(objectPath.c_str(), tmpStream, [&progress, &blockSize, fe, byteCount] (long bytesDownloaded, long bytesTotal) -> bool {
-				blockSize = bytesDownloaded;
-				return progress(byteCount + bytesDownloaded, fe->size);
-			});
-			
-			byteCount += blockSize;
+			mDataStore->get(objectPath.c_str(), tmpStream,
+							[&progress, i, fe] (long bytesDownloaded, long bytesTotal) -> bool {
+								return progress(i, fe->numBlocks, bytesDownloaded, bytesTotal);
+							});
 
 			StreamUtils::decompressDecryptHMAC((CompressionType)fe->compression, EVP_aes_256_cbc(), mEncKey, mMacKey, *tmpStream.inputStream(), fileStream);
 		}

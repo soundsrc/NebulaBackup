@@ -120,7 +120,7 @@ namespace Nebula
 		/**
 		 * Downloads a file to the output stream.
 		 */
-		bool downloadFile(Snapshot *snapshot, const char *srcPath, OutputStream& fileStream, ProgressFunction progress = DefaultProgressFunction);
+		bool downloadFile(Snapshot *snapshot, const char *srcPath, OutputStream& fileStream, FileTransferProgressFunction progress = DefaultFileTransferProgressFunction);
 		
 		
 		/**
