@@ -199,12 +199,20 @@ static void formatBytes(long bytes, char *outString, size_t maxLen)
 	}
 }
 
-static void printProgress(long bytesTransferred, long bytesTotal, time_t startTime)
+static void printProgress(int blockNo, int blockMax, long bytesTransferred, long bytesTotal, time_t startTime)
 {
 	if(options.quiet) return;
 
 	long percent = bytesTotal > 0 ? bytesTransferred * 100 / bytesTotal : 100;
-	fputs("  [", stdout);
+	fputs("  ", stdout);
+	
+	if(blockMax < 0) {
+		fprintf(stdout, "# %7d", blockNo + 1);
+	} else {
+		fprintf(stdout, "# %3d/%-3d", blockNo + 1, blockMax + 1);
+	}
+
+	fputs(" [", stdout);
 	int i = 0;
 	for(i = 0; i < percent; i += 5) {
 		fputc('#', stdout);
@@ -257,12 +265,17 @@ static void backupFiles(const char *repository, const char *snapshotName, int ar
 					if(!options.dryRun) {
 						time_t startTime = time(nullptr);
 						FileStream fs(file.path().c_str(), FileMode::Read);
+						int lastBlockNo = 0;
 						repo.uploadFile(snapshot.get(), file.path().c_str(), fs,
-							[startTime](long bytesUploaded, long bytesTotal) -> bool {
-								printProgress(bytesUploaded, bytesTotal, startTime);
+							[&lastBlockNo, startTime](int blockNo, int blockMax, long bytesUploaded, long bytesTotal) -> bool {
+								if(lastBlockNo != blockNo) {
+									lastBlockNo = blockNo;
+									fputs("\n", stdout);
+								}
+								printProgress(blockNo, blockMax, bytesUploaded, bytesTotal, startTime);
 								return true;
 							});
-						if(!options.quiet) printf("\n");
+						if(!options.quiet) fputs("\n", stdout);
 					}
 				}
 			}
@@ -273,11 +286,17 @@ static void backupFiles(const char *repository, const char *snapshotName, int ar
 			if(!options.dryRun) {
 				time_t startTime = time(nullptr);
 				FileStream fs(argv[i], FileMode::Read);
-				repo.uploadFile(snapshot.get(), argv[i], fs, [startTime](long bytesDownloaded, long bytesTotal) -> bool {
-					printProgress(bytesDownloaded, bytesTotal, startTime);
-					return true;
-				});
-				if(!options.quiet) printf("\n");
+				int lastBlockNo = 0;
+				repo.uploadFile(snapshot.get(), argv[i], fs,
+								[&lastBlockNo, startTime](int blockNo, int blockMax, long bytesDownloaded, long bytesTotal) -> bool {
+									if(lastBlockNo != blockNo) {
+										lastBlockNo = blockNo;
+										fputs("\n", stdout);
+									}
+									printProgress(blockNo, blockMax, bytesDownloaded, bytesTotal, startTime);
+									return true;
+								});
+				if(!options.quiet) fputs("\n", stdout);
 			}
 		}
 	}
@@ -414,7 +433,7 @@ static void downloadFiles(const char *repository, const char *snapshotName, int 
 					time_t startTime = time(nullptr);
 					FileStream outStream(filePath.c_str(), FileMode::Write);
 					repo.downloadFile(snapshot.get(), filename, outStream, [startTime](long bytesDownloaded, long bytesTotal) -> bool {
-						printProgress(bytesDownloaded, bytesTotal, startTime);
+						printProgress(0, 0, bytesDownloaded, bytesTotal, startTime);
 						return true;
 					});
 					if(!options.quiet) printf("\n");
