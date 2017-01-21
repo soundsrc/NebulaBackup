@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
+#include <time.h>
 
 #ifdef _WIN32
 #else
@@ -198,11 +199,11 @@ static void formatBytes(long bytes, char *outString, size_t maxLen)
 	}
 }
 
-static void printProgress(long bytesTransferred, long bytesTotal)
+static void printProgress(long bytesTransferred, long bytesTotal, time_t startTime)
 {
 	if(options.quiet) return;
 
-	long percent = bytesTransferred * 100 / bytesTotal;
+	long percent = bytesTotal > 0 ? bytesTransferred * 100 / bytesTotal : 100;
 	fputs("  [", stdout);
 	int i = 0;
 	for(i = 0; i < percent; i += 5) {
@@ -214,10 +215,16 @@ static void printProgress(long bytesTransferred, long bytesTotal)
 	
 	char bytesTransferredString[32];
 	char bytesTotalString[32];
+	char avgBytesPerSecString[32];
 	
 	formatBytes(bytesTransferred, bytesTransferredString, sizeof(bytesTransferredString));
 	formatBytes(bytesTotal, bytesTotalString, sizeof(bytesTotalString));
-	printf("] %s / %s  \r", bytesTransferredString, bytesTotalString);
+	
+	time_t timeDelta = time(nullptr) - startTime;
+	long avgBytesPerSec = timeDelta > 0 ? bytesTransferred / timeDelta : 0;
+	formatBytes(avgBytesPerSec, avgBytesPerSecString, sizeof(avgBytesPerSecString));
+	
+	printf("] %s / %s  (%s/s)          \r", bytesTransferredString, bytesTotalString, avgBytesPerSecString);
 	fflush(stdout);
 }
 
@@ -248,10 +255,11 @@ static void backupFiles(const char *repository, const char *snapshotName, int ar
 					}
 					
 					if(!options.dryRun) {
+						time_t startTime = time(nullptr);
 						FileStream fs(file.path().c_str(), FileMode::Read);
 						repo.uploadFile(snapshot.get(), file.path().c_str(), fs,
-							[](long bytesUploaded, long bytesTotal) -> bool {
-								printProgress(bytesUploaded, bytesTotal);
+							[startTime](long bytesUploaded, long bytesTotal) -> bool {
+								printProgress(bytesUploaded, bytesTotal, startTime);
 								return true;
 							});
 						if(!options.quiet) printf("\n");
@@ -263,9 +271,10 @@ static void backupFiles(const char *repository, const char *snapshotName, int ar
 				printf("%s\n", argv[i]);
 			}
 			if(!options.dryRun) {
+				time_t startTime = time(nullptr);
 				FileStream fs(argv[i], FileMode::Read);
-				repo.uploadFile(snapshot.get(), argv[i], fs, [](long bytesDownloaded, long bytesTotal) -> bool {
-					printProgress(bytesDownloaded, bytesTotal);
+				repo.uploadFile(snapshot.get(), argv[i], fs, [startTime](long bytesDownloaded, long bytesTotal) -> bool {
+					printProgress(bytesDownloaded, bytesTotal, startTime);
 					return true;
 				});
 				if(!options.quiet) printf("\n");
@@ -402,9 +411,10 @@ static void downloadFiles(const char *repository, const char *snapshotName, int 
 				}
 
 				{
+					time_t startTime = time(nullptr);
 					FileStream outStream(filePath.c_str(), FileMode::Write);
-					repo.downloadFile(snapshot.get(), filename, outStream, [](long bytesDownloaded, long bytesTotal) -> bool {
-						printProgress(bytesDownloaded, bytesTotal);
+					repo.downloadFile(snapshot.get(), filename, outStream, [startTime](long bytesDownloaded, long bytesTotal) -> bool {
+						printProgress(bytesDownloaded, bytesTotal, startTime);
 						return true;
 					});
 					if(!options.quiet) printf("\n");
