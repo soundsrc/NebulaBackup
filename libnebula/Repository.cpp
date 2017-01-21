@@ -48,13 +48,25 @@ extern "C" {
 
 namespace Nebula
 {
-	Repository::Repository(DataStore *dataStore)
+	Repository::Options::Options()
+	: smallFileSize(512000)
+	, minBlockSizeLog(16)
+	, maxBlockSizeLog(25)
+	, blockSplitCount(8)
+	{
+	}
+	
+	Repository::Repository(DataStore *dataStore, Options *options)
 	: mDataStore(dataStore)
 	{
 		mEncKey = (uint8_t *)malloc(EVP_MAX_KEY_LENGTH);
 		mMacKey = (uint8_t *)malloc(EVP_MAX_KEY_LENGTH);
 		mHashKey = (uint8_t *)malloc(EVP_MAX_KEY_LENGTH);
 		mRollKey = (uint8_t *)malloc(EVP_MAX_KEY_LENGTH);
+		
+		if(options) {
+			mOptions = *options;
+		}
 	}
 	
 	Repository::~Repository()
@@ -340,12 +352,17 @@ namespace Nebula
 			// the block size is dynamically determined based on file length
 			// and increases bigger for larger file sizes
 			// TODO: make these values configurable
-			blockSizeLog = ceil(log(fileLength / 8) / log(2));
-			if(blockSizeLog < 16) blockSizeLog = 16;
-			if(blockSizeLog > 25) blockSizeLog = 25;
+			blockSizeLog = ceil(log(fileLength / mOptions.blockSplitCount) / log(2));
+			if(blockSizeLog < mOptions.minBlockSizeLog) blockSizeLog = mOptions.minBlockSizeLog;
+			if(blockSizeLog > mOptions.maxBlockSizeLog) blockSizeLog = mOptions.maxBlockSizeLog;
 			uint64_t hashMask = (1 << blockSizeLog) - 1;
 			
-			long minBlockSize = std::max(4096, (int)(fileLength / 65535));
+			// the minimum block size, sometimes with the rolling hash algorithm
+			// you can get a stream of blocks sizes of 1 due to the right combination
+			// of bytes repeating for a long while
+			// define the min block size to 4kib, or filesize/65535 as the max
+			// number of blocks is 65535
+			long minBlockSize = std::max(4096, (int)((fileLength + 65534) / 65535));
 
 			std::vector<uint8_t> blockBuffer;
 			blockBuffer.reserve(1 << (1 + blockSizeLog));

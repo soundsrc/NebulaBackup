@@ -36,12 +36,33 @@ namespace Nebula
 	class Repository
 	{
 	public:
+		struct Options
+		{
+			/**
+			 * Small file size setting.
+			 * If the upload file size is smaller than this, do not split 
+			 */
+			int smallFileSize;
+			
+			/// Minimum block size log
+			int minBlockSizeLog;
+			
+			/// Maximum block size log
+			int maxBlockSizeLog;
+			
+			/// when dynamically splitting blocks, increasing the blockSplitCount
+			/// increases the average number of chunks the file with be split 
+			int blockSplitCount;
+			
+			Options();
+		};
+		
 		/**
 		 * Creates a new instance of repository, supplying a backend data store.
 		 * If the repository is an existing repository, then you should call
 		 * unlockRepository
 		 */
-		Repository(DataStore *dataStore);
+		Repository(DataStore *dataStore, Options *options = nullptr);
 		~Repository();
 		
 		/**
@@ -111,6 +132,8 @@ namespace Nebula
 		enum { MAX_LOG_ROUNDS = 31 };
 
 		DataStore *mDataStore;
+		Options mOptions;
+
 		uint8_t *mEncKey;
 		uint8_t *mMacKey;
 		uint8_t *mHashKey;
