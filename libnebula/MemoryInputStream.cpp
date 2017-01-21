@@ -53,6 +53,6 @@ namespace Nebula
 	
 	long MemoryInputStream::size() const
 	{
-		return mNext - mStart;
+		return mEnd - mStart;
 	}
 }

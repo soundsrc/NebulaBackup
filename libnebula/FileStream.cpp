@@ -15,6 +15,7 @@
  */
 #include "FileStream.h"
 #include <assert.h>
+#include <boost/filesystem.hpp>
 #include "Exception.h"
 
 namespace Nebula
@@ -37,6 +38,10 @@ namespace Nebula
 	
 	long FileStream::size() const
 	{
+		using namespace boost::filesystem;
+		
+		return file_size(mPath);
+#if 0
 		long length;
 		long curPos = ftell(mFp);
 		if(curPos < 0) goto error;
@@ -52,6 +57,7 @@ namespace Nebula
 error:
 		throw FileIOException("Failed to determine file length.");
 		return 0;
+#endif
 	}
 	
 	bool FileStream::open(const char *path, FileMode mode)

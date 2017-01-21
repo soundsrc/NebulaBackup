@@ -47,11 +47,17 @@ namespace Nebula
 		MultiInputStream mInputStream;
 		
 		virtual size_t read(void *data, size_t size) override;
+		virtual long size() const override;
 	};
 	
 	size_t EncryptedHMACStream::read(void *data, size_t size)
 	{
 		return mInputStream.read(data, size);
+	}
+	
+	long EncryptedHMACStream::size() const
+	{
+		return mInputStream.size();
 	}
 	
 	std::shared_ptr<InputStream> StreamUtils::compressEncryptHMAC(CompressionType compressType, const EVP_CIPHER *cipher, const uint8_t *encKey, const uint8_t *macKey, InputStream& inStream)
