@@ -18,6 +18,7 @@
 #include <math.h>
 #include <string>
 #include <set>
+#include <algorithm>
 #include <boost/filesystem.hpp>
 #include <openssl/evp.h>
 #include <openssl/sha.h>
@@ -344,6 +345,8 @@ namespace Nebula
 			if(blockSizeLog > 25) blockSizeLog = 25;
 			uint64_t hashMask = (1 << blockSizeLog) - 1;
 			
+			long minBlockSize = std::max(4096, (int)(fileLength / 65535));
+
 			std::vector<uint8_t> blockBuffer;
 			blockBuffer.reserve(1 << (1 + blockSizeLog));
 			
@@ -353,7 +356,8 @@ namespace Nebula
 			while(!bufferedFile.isEof()) {
 				uint8_t b = bufferedFile.readByte();
 				blockBuffer.push_back(b);
-				if((rh.roll(b) & hashMask) == 0) {
+				if(blockBuffer.size() >= minBlockSize &&
+				   (rh.roll(b) & hashMask) == 0) {
 					
 					if(!SHA256_Update(&sha256, &blockBuffer[0], blockBuffer.size())) {
 						throw EncryptionFailedException("SHA256_Update failed.");
