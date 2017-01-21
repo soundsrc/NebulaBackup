@@ -21,6 +21,8 @@
 namespace Nebula
 {
 	typedef const std::function<bool (long, long)>& ProgressFunction;
+	typedef const std::function<bool (int, int, long, long)>& FileTransferProgressFunction;
 	
 	inline bool DefaultProgressFunction(long, long) { return true; }
+	inline bool DefaultFileTransferProgressFunction(int, int, long, long) { return true; }
 }

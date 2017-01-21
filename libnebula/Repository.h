@@ -115,7 +115,7 @@ namespace Nebula
 		 * Until a snapshot is committed, it is loose file which may be
 		 * compacted via the compactRepository() method.
 		 */
-		void uploadFile(Snapshot *snapshot, const char *destPath, FileStream& fileStream, ProgressFunction progress = DefaultProgressFunction);
+		void uploadFile(Snapshot *snapshot, const char *destPath, FileStream& fileStream, FileTransferProgressFunction progress = DefaultFileTransferProgressFunction);
 		
 		/**
 		 * Downloads a file to the output stream.

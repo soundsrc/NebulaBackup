@@ -283,7 +283,7 @@ namespace Nebula
 		mDataStore->put(uploadPath.c_str(), *encryptedStream, progress);
 	}
 	
-	void Repository::uploadFile(Snapshot *snapshot, const char *destPath, FileStream& fileStream, ProgressFunction progress)
+	void Repository::uploadFile(Snapshot *snapshot, const char *destPath, FileStream& fileStream, FileTransferProgressFunction progress)
 	{
 		using namespace boost;
 		
@@ -344,7 +344,10 @@ namespace Nebula
 			
 			Snapshot::BlockHash blockHash;
 			computeBlockHMAC(buffer.get(), fileLength, (uint8_t)compressionType, blockHash.hmac256);
-			compressEncryptAndUploadBlock(compressionType, blockHash.hmac256, buffer.get(), fileLength, progress);
+			compressEncryptAndUploadBlock(compressionType, blockHash.hmac256, buffer.get(), fileLength,
+										  [&progress](long bytesUploaded, long bytesTotal) -> bool {
+											  return progress(0, 0, bytesUploaded, bytesTotal);
+										  });
 			blockHashes.push_back(blockHash);
 			
 		} else {
@@ -365,9 +368,8 @@ namespace Nebula
 
 			std::vector<uint8_t> blockBuffer;
 			blockBuffer.reserve(1 << (1 + blockSizeLog));
-			
-			long bytesCount = 0;
 
+			int blockCount = 0;
 			BufferedInputStream bufferedFile(fileStream);
 			while(!bufferedFile.isEof()) {
 				uint8_t b = bufferedFile.readByte();
@@ -383,10 +385,10 @@ namespace Nebula
 					// upload block
 					computeBlockHMAC(&blockBuffer[0], blockBuffer.size(), (uint8_t)compressionType, blockHash.hmac256);
 					compressEncryptAndUploadBlock(compressionType, blockHash.hmac256, &blockBuffer[0], blockBuffer.size(),
-												  [&progress, bytesCount, fileLength](long bytesUploaded, long bytesTotal) -> bool {
-													  return progress(bytesCount + bytesUploaded, fileLength);
+												  [&progress, blockCount](long bytesUploaded, long bytesTotal) -> bool {
+													  return progress(blockCount, -1, bytesUploaded, bytesTotal);
 												  });
-					bytesCount += blockBuffer.size();
+					++blockCount;
 
 					blockHashes.push_back(blockHash);
 					blockBuffer.clear();
@@ -401,10 +403,10 @@ namespace Nebula
 				
 				computeBlockHMAC(&blockBuffer[0], blockBuffer.size(), (uint8_t)compressionType, blockHash.hmac256);
 				compressEncryptAndUploadBlock(compressionType, blockHash.hmac256, &blockBuffer[0], blockBuffer.size(),
-											  [&progress, bytesCount, fileLength](long bytesUploaded, long bytesTotal) -> bool {
-												  return progress(bytesCount + bytesUploaded, fileLength);
+											  [&progress, blockCount](long bytesUploaded, long bytesTotal) -> bool {
+												  return progress(blockCount, -1, bytesUploaded, bytesTotal);
 											  });
-				bytesCount += blockBuffer.size();
+				++blockCount;
 				blockHashes.push_back(blockHash);
 			}
 		}
