@@ -97,7 +97,7 @@ namespace Nebula
 			throw FileIOException(fullPath.string() + ": " + strerror(errno));
 		}
 
-		long fileSize = -1;
+		long fileSize = stream.size();
 		long bytesWritten = 0;
 		size_t n;
 		char buffer[4096];
