@@ -115,8 +115,6 @@ namespace Nebula
 		uint8_t *mMacKey;
 		uint8_t *mHashKey;
 		uint8_t *mRollKey;
-		
-		struct MallocDeletor;
 
 		void computeBlockHMAC(const uint8_t *block, size_t size, uint8_t compression, uint8_t *outHMAC);
 		void compressEncryptAndUploadBlock(CompressionType compressType, const uint8_t *blockHMAC, const uint8_t *block, size_t size, ProgressFunction progress);

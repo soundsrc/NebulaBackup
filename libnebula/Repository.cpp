@@ -68,13 +68,6 @@ namespace Nebula
 		free(mRollKey);
 	}
 	
-	struct Repository::MallocDeletor
-	{
-		inline void operator ()(uint8_t *p) {
-			free(p);
-		}
-	};
-	
 	void Repository::writeRepositoryKey(const char *password, uint8_t logRounds, ProgressFunction progress)
 	{
 		// derive key from password
@@ -325,7 +318,7 @@ namespace Nebula
 		// just upload as is
 		if(fileLength < 1024 * 1024) {
 			
-			std::unique_ptr<uint8_t, MallocDeletor> buffer( (uint8_t *)malloc(fileLength) );
+			std::unique_ptr<uint8_t, decltype(free) *> buffer( (uint8_t *)malloc(fileLength), free );
 
 			if(fileStream.read(buffer.get(), fileLength) != fileLength) {
 				throw FileIOException("Failed to read file.");
