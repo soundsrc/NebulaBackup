@@ -50,4 +50,17 @@ namespace Nebula
 		
 		return bytesRead;
 	}
+	
+	long MultiInputStream::size() const
+	{
+		long sizeTotal = 0;
+
+		for(auto& is : mStreamList) {
+			long size = is->size();
+			if(size < 0) return -1;
+			sizeTotal += size;
+		}
+		
+		return sizeTotal;
+	}
 }

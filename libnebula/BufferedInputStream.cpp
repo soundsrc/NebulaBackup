@@ -59,4 +59,9 @@ namespace Nebula
 		
 		return totalBytes;
 	}
+	
+	long BufferedInputStream::size() const
+	{
+		return mStream.size();
+	}
 }

@@ -37,7 +37,7 @@ namespace Nebula
 		~FileStream();
 		
 		bool open(const char *path, FileMode mode);
-		long length() const;
+		virtual long size() const override;
 		
 		const std::string& path() const { return mPath; }
 

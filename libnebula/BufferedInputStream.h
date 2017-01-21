@@ -38,6 +38,7 @@ namespace Nebula
 		
 		bool isEof() { return !reload(); }
 
+		virtual long size() const override;
 	private:
 		InputStream& mStream;
 

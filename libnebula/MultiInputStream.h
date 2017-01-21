@@ -33,6 +33,8 @@ namespace Nebula
 		explicit MultiInputStream(const std::vector<InputStream *>& l);
 		explicit MultiInputStream(std::initializer_list<InputStream *> l);
 		virtual size_t read(void *data, size_t size) override;
+		
+		virtual long size() const override;
 	private:
 		std::vector<InputStream *> mStreamList;
 		std::vector<InputStream *>::iterator mCurStream;

@@ -31,7 +31,7 @@ namespace Nebula
 		MemoryInputStream(const uint8_t *buffer, size_t size);
 		
 		const uint8_t *data() const { return mStart; }
-		size_t size() const { return mNext - mStart; }
+		virtual long size() const override;
 
 		virtual size_t read(void *data, size_t size) override;
 		

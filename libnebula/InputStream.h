@@ -54,7 +54,13 @@ namespace Nebula
 		 * Rewinds the stream to the beginning, if supported.
 		 */
 		virtual void rewind();
-		
+
+		/**
+		 * Returns the size of the input stream if available.
+		 * Returns -1 if not available
+		 */
+		virtual long size() const;
+
 		/**
 		 * Copies the content of the input stream to the output stream
 		 */

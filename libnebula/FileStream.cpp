@@ -35,7 +35,7 @@ namespace Nebula
 		close();
 	}
 	
-	long FileStream::length() const
+	long FileStream::size() const
 	{
 		long length;
 		long curPos = ftell(mFp);
