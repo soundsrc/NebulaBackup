@@ -254,7 +254,7 @@ static void backupFiles(const char *repository, const char *snapshotName, int ar
 								printProgress(bytesUploaded, bytesTotal);
 								return true;
 							});
-						printf("\n");
+						if(!options.quiet) printf("\n");
 					}
 				}
 			}
@@ -268,7 +268,7 @@ static void backupFiles(const char *repository, const char *snapshotName, int ar
 					printProgress(bytesDownloaded, bytesTotal);
 					return true;
 				});
-				printf("\n");
+				if(!options.quiet) printf("\n");
 			}
 		}
 	}
@@ -354,9 +354,9 @@ static void downloadFiles(const char *repository, const char *snapshotName, int 
 	if(!filesystem::is_directory(argv[argc - 1])) {
 		throw InvalidArgumentException("Last argument should specify a valid directory.");
 	}
-	filesystem::path destPath = filesystem::path(argv[argc - 1]);
+	filesystem::path destDir = filesystem::path(argv[argc - 1]);
 
-	const char *argv2[] = { "", destPath.c_str() };
+	const char *argv2[] = { "", destDir.c_str() };
 	if(argc == 1) {
 		argv = argv2;
 		argc++;
@@ -375,10 +375,13 @@ static void downloadFiles(const char *repository, const char *snapshotName, int 
 		const char * srcFile = argv[i];
 
 		snapshot->forEachFileEntry(srcFile,
-			[&repo, srcFile, &snapshot, &destPath](const Snapshot::FileEntry& fe) {
+			[&repo, srcFile, &snapshot, &destDir](const Snapshot::FileEntry& fe) {
 			const char *filename = snapshot->indexToString(fe.pathIndex);
 
-			filesystem::path filePath = destPath / filesystem::path(filename);
+			filesystem::path inputParentPath = filesystem::path(srcFile).parent_path();
+			filesystem::path destFilePath = filesystem::relative(filesystem::path(filename), inputParentPath);
+
+			filesystem::path filePath = destDir / filesystem::path(destFilePath);
 
 			if(!options.force && !options.dryRun && filesystem::exists(filePath)) {
 				printf("%s: File exists. Overwrite (y/n)? ", filePath.c_str());
@@ -386,7 +389,7 @@ static void downloadFiles(const char *repository, const char *snapshotName, int 
 				if(fgetc(stdin) != 'y') {
 					return;
 				}
-				printf("\n");
+				if(!options.quiet) printf("\n");
 			}
 			
 			if(!options.quiet) {
@@ -400,7 +403,11 @@ static void downloadFiles(const char *repository, const char *snapshotName, int 
 
 				{
 					FileStream outStream(filePath.c_str(), FileMode::Write);
-					repo.downloadFile(snapshot.get(), filename, outStream);
+					repo.downloadFile(snapshot.get(), filename, outStream, [](long bytesDownloaded, long bytesTotal) -> bool {
+						printProgress(bytesDownloaded, bytesTotal);
+						return true;
+					});
+					if(!options.quiet) printf("\n");
 				}
 				
 				if(options.verify) {

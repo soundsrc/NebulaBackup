@@ -260,6 +260,7 @@ namespace Nebula
 		// if the block already exists in the repository, skip the upload
 		std::string uploadPath = "/data/" + hmac256ToString(blockHMAC);
 		if(mDataStore->exist(uploadPath.c_str())) {
+			progress(size, size);
 			return;
 		}
 		
@@ -420,13 +421,20 @@ namespace Nebula
 			return false;
 		}
 		
+		long byteCount = 0;
 		const Snapshot::BlockHash *blockHashes = snapshot->indexToBlockHash(fe->blockIndex);
 		for(int i = 0; i < fe->numBlocks; ++i) {
 			std::string objectPath = "/data/" + hmac256ToString(blockHashes[i].hmac256);
 
 			// download the object to tmpFile
 			TempFileStream tmpStream;
-			mDataStore->get(objectPath.c_str(), tmpStream);
+			long blockSize = 0;
+			mDataStore->get(objectPath.c_str(), tmpStream, [&progress, &blockSize, fe, byteCount] (long bytesDownloaded, long bytesTotal) -> bool {
+				blockSize = bytesDownloaded;
+				return progress(byteCount + bytesDownloaded, fe->size);
+			});
+			
+			byteCount += blockSize;
 
 			StreamUtils::decompressDecryptHMAC((CompressionType)fe->compression, EVP_aes_256_cbc(), mEncKey, mMacKey, *tmpStream.inputStream(), fileStream);
 		}
