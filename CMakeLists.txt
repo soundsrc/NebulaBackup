@@ -13,7 +13,10 @@ set (NEBULA_BACKUP_INCLUDES
 	"${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/libressl/include"
 	"${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/boost"
 	"${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/lzma/C"
+	"${CMAKE_BINARY_DIR}/include"
 )
+
+link_directories("${CMAKE_BINARY_DIR}/lib")
 
 set (NEBULA_BACKUP_LIBS
 	"Nebula"
@@ -22,6 +25,7 @@ set (NEBULA_BACKUP_LIBS
 	 "ssl"
 	 "crypto"
 	 "ssh_shared"
+	 "aws-cpp-sdk-s3"
 )
 
 if(APPLE)
@@ -34,6 +38,11 @@ endif(APPLE)
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/libressl")
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/libssh")
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/googletest")
+ExternalProject_Add(aws-sdk-cpp
+	SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/aws-sdk-cpp"
+	CMAKE_ARGS -DENABLE_TESTING=OFF -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}
+	INSTALL_DIR "${CMAKE_BINARY_DIR}"
+)
 
 add_library(boostfilesystem
 	"thirdparty/boost/libs/filesystem/src/codecvt_error_category.cpp"
@@ -212,6 +221,8 @@ target_include_directories(NebulaBackup PUBLIC
 target_link_libraries(NebulaBackup PUBLIC
 	${NEBULA_BACKUP_LIBS}
 )
+
+add_dependencies(NebulaBackup aws-sdk-cpp)
 
 add_executable(NebulaBackupTests
 	"tests/Base32Tests.cpp"
