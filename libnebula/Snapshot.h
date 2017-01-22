@@ -52,7 +52,8 @@ namespace Nebula
 		
 		struct FileEntry
 		{
-			int pathIndex; // pathname to the file
+			int nameIndex; // filename
+			int pathIndex; // parent path to the file
 			int userIndex; // unix user id
 			int groupIndex; // unix group name
 			uint16_t mode; // mode

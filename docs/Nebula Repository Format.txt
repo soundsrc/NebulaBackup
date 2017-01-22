@@ -40,7 +40,8 @@ Nebula Repository Format
 		}
 		fileInfoList      ...[numFiles]
 		{
-			path            u32      Pathname (index in the string table)
+			name            u32      Filename (index in the string table)
+			path			u32      Parent path name
 			uid             u32      User ID (index in the string table)
 			gid             u32      Group ID (index in the string table)
 			mode            u16      UNIX permission mode

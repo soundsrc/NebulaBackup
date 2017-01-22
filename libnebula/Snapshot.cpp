@@ -58,14 +58,19 @@ namespace Nebula
 					  int numBlocks,
 					  const BlockHash *blockHashes)
 	{
+		using namespace boost;
+
 		std::lock_guard<std::recursive_mutex> lock(mMutex);
 		
 		if(numBlocks > std::numeric_limits<uint16_t>::max()) {
 			throw InvalidArgumentException("Too many blocks. Try a bigger block size.");
 		}
 
+		filesystem::path pathname(path);
+		
 		FileEntry fe;
-		fe.pathIndex = insertStringTable(path);
+		fe.nameIndex = insertStringTable(pathname.filename().c_str());
+		fe.pathIndex = insertStringTable(pathname.parent_path().c_str());
 		fe.userIndex = insertStringTable(user);
 		fe.groupIndex = insertStringTable(group);
 		fe.type = (uint8_t)type;
@@ -111,8 +116,8 @@ namespace Nebula
 		size_t n = searchPath.size();
 		auto found = mFiles.lower_bound(searchPath.c_str());
 		while(found != mFiles.end()) {
-			const char *filePath = indexToString(found->second.pathIndex);
-			if(strncmp(searchPath.c_str(), filePath, n) != 0) break;
+			std::string filePath = std::string(indexToString(found->second.pathIndex)) + "/" + indexToString(found->second.nameIndex);
+			if(strncmp(searchPath.c_str(), filePath.c_str(), n) != 0) break;
 			if(!searchPath.empty() && filePath[n] != 0 && filePath[n] != '/') break;
 			callback(found->second);
 			++found;
@@ -157,6 +162,7 @@ namespace Nebula
 		
 		for(int i = 0; i < numFiles; ++i) {
 			FileEntry fe;
+			fe.nameIndex = inStream.readType<uint32_t>();
 			fe.pathIndex = inStream.readType<uint32_t>();
 			fe.userIndex = inStream.readType<uint32_t>();
 			fe.groupIndex = inStream.readType<uint32_t>();
@@ -170,7 +176,9 @@ namespace Nebula
 			fe.mtime = inStream.readType<uint64_t>();
 			inStream.readExpected(fe.sha256, SHA256_DIGEST_LENGTH);
 			fe.blockIndex = inStream.readType<uint32_t>();
-			mFiles[indexToString(fe.pathIndex)] = fe;
+			
+			std::string path = std::string(indexToString(fe.pathIndex)) + "/" + indexToString(fe.nameIndex);
+			mFiles[path] = fe;
 		}
 	}
 	
@@ -194,6 +202,7 @@ namespace Nebula
 		for(auto& fkv : mFiles)
 		{
 			const FileEntry& fe = fkv.second;
+			outStream.writeType<uint32_t>(fe.nameIndex);
 			outStream.writeType<uint32_t>(fe.pathIndex);
 			outStream.writeType<uint32_t>(fe.userIndex);
 			outStream.writeType<uint32_t>(fe.groupIndex);

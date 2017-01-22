@@ -341,7 +341,8 @@ static void listSnapshot(const char *repository, const char *snapshotName)
 	snapshot->forEachFileEntry([&snapshot] (const Snapshot::FileEntry &fe) {
 		const char *user = snapshot->indexToString(fe.userIndex);
 		const char *group = snapshot->indexToString(fe.groupIndex);
-		const char *path = snapshot->indexToString(fe.pathIndex);
+		filesystem::path name = snapshot->indexToString(fe.nameIndex);
+		filesystem::path path = snapshot->indexToString(fe.pathIndex);
 
 		char modeString[] = "----------";
 		switch((FileType)fe.type) {
@@ -370,7 +371,7 @@ static void listSnapshot(const char *repository, const char *snapshotName)
 			   user,
 			   group,
 			   fe.size,
-			   path);
+			   (path / name).c_str());
 	});
 }
 
@@ -404,10 +405,11 @@ static void downloadFiles(const char *repository, const char *snapshotName, int 
 
 		snapshot->forEachFileEntry(srcFile,
 			[&repo, srcFile, &snapshot, &destDir](const Snapshot::FileEntry& fe) {
-			const char *filename = snapshot->indexToString(fe.pathIndex);
+			std::string name = snapshot->indexToString(fe.nameIndex);
+			std::string path = snapshot->indexToString(fe.pathIndex);
 
 			filesystem::path inputParentPath = filesystem::path(srcFile).parent_path();
-			filesystem::path destFilePath = filesystem::relative(filesystem::path(filename), inputParentPath);
+			filesystem::path destFilePath = filesystem::relative(path + "/" + name, inputParentPath);
 
 			filesystem::path filePath = destDir / filesystem::path(destFilePath);
 
@@ -433,7 +435,7 @@ static void downloadFiles(const char *repository, const char *snapshotName, int 
 					time_t startTime = time(nullptr);
 					FileStream outStream(filePath.c_str(), FileMode::Write);
 					int lastBlockNo = 0;
-					repo.downloadFile(snapshot.get(), filename, outStream,
+					repo.downloadFile(snapshot.get(), (path + "/" + name).c_str(), outStream,
 						[startTime, &lastBlockNo](int blockNo, int blockCount, long bytesDownloaded, long bytesTotal) -> bool {
 							if(lastBlockNo != blockNo) {
 								lastBlockNo = blockNo;
