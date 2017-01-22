@@ -28,6 +28,7 @@ extern "C" {
 #include "compat/string.h"
 #include "compat/resolv.h"
 }
+#include "Base32.h"
 #include "FileInfo.h"
 #include "RollingHash.h"
 #include "EncryptedOutputStream.h"
@@ -463,35 +464,8 @@ namespace Nebula
 	
 	std::string Repository::hmac256ToString(const uint8_t *hmac) const
 	{
-		char outStr[45];
-		if(b64_ntop(hmac, SHA256_DIGEST_LENGTH, outStr, sizeof(outStr)) < 0
-		   || outStr[43] != '=') {
-			throw InvalidDataException("b64_ntop error.");
-		}
-		outStr[43] = 0;
-
-		std::transform(outStr, outStr + sizeof(outStr), outStr, [](char c) {
-			if(c == '+') return '.';
-			if(c == '/') return '_';
-			return c;
-		});
-		
-		return outStr;
-	}
-	
-	void Repository::hmac256strToHmac(const char *str, uint8_t *outHMAC)
-	{
-		std::string inStr = str;
-		inStr += '=';
-
-		std::transform(inStr.begin(), inStr.end(), inStr.begin(), [](char c) {
-			if(c == '+') return '.';
-			if(c == '/') return '_';
-			return c;
-		});
-
-		if(b64_pton(inStr.c_str(), outHMAC, SHA256_DIGEST_LENGTH) < 0) {
-			throw InvalidDataException("b64_pton error.");
-		}
+		char outStr[53];
+		base32encode(hmac, SHA256_DIGEST_LENGTH, outStr, sizeof(outStr));
+		return std::string(outStr, 2) + "/" + std::string(outStr + 2);
 	}
 }
