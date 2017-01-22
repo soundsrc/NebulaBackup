@@ -368,7 +368,7 @@ namespace Nebula
 			long minBlockSize = std::max(4096, (int)((fileLength + 65534) / 65535));
 
 			std::vector<uint8_t> blockBuffer;
-			blockBuffer.reserve(1 << (1 + blockSizeLog));
+			blockBuffer.reserve(std::min(1 << (1 + blockSizeLog), mOptions.maxBlockSize));
 
 			int blockCount = 0;
 			BufferedInputStream bufferedFile(fileStream);
