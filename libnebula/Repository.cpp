@@ -50,6 +50,7 @@ namespace Nebula
 {
 	Repository::Options::Options()
 	: smallFileSize(512000)
+	, maxBlockSize(50000000)
 	, minBlockSizeLog(16)
 	, maxBlockSizeLog(25)
 	, blockSplitCount(8)
@@ -375,7 +376,7 @@ namespace Nebula
 				uint8_t b = bufferedFile.readByte();
 				blockBuffer.push_back(b);
 				if(blockBuffer.size() >= minBlockSize &&
-				   (rh.roll(b) & hashMask) == 0) {
+				   ((rh.roll(b) & hashMask) == 0 || blockBuffer.size() >= mOptions.maxBlockSize)) {
 					
 					if(!SHA256_Update(&sha256, &blockBuffer[0], blockBuffer.size())) {
 						throw EncryptionFailedException("SHA256_Update failed.");

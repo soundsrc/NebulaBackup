@@ -44,6 +44,11 @@ namespace Nebula
 			 */
 			int smallFileSize;
 			
+			/**
+			 * Maximum block size.
+			 */
+			int maxBlockSize;
+			
 			/// Minimum block size log
 			int minBlockSizeLog;
 			
