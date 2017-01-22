@@ -330,7 +330,7 @@ namespace Nebula
 
 		// don't bother with splitting the file if it's < 1MB
 		// just upload as is
-		if(fileLength < 1024 * 1024) {
+		if(fileLength < mOptions.smallFileSize) {
 			
 			std::unique_ptr<uint8_t, decltype(free) *> buffer( (uint8_t *)malloc(fileLength), free );
 
