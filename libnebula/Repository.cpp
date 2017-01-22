@@ -346,7 +346,7 @@ namespace Nebula
 			computeBlockHMAC(buffer.get(), fileLength, (uint8_t)compressionType, blockHash.hmac256);
 			compressEncryptAndUploadBlock(compressionType, blockHash.hmac256, buffer.get(), fileLength,
 										  [&progress](long bytesUploaded, long bytesTotal) -> bool {
-											  return progress(0, 0, bytesUploaded, bytesTotal);
+											  return progress(0, 1, bytesUploaded, bytesTotal);
 										  });
 			blockHashes.push_back(blockHash);
 			
