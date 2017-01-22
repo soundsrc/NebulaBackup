@@ -135,6 +135,8 @@ target_include_directories(lzma PUBLIC
 )
 
 add_library(Nebula SHARED 
+	"libnebula/Base32.cpp"
+	"libnebula/Base32.h"
 	"libnebula/BufferedInputStream.cpp"
 	"libnebula/BufferedInputStream.h"
 	"libnebula/CompressionType.h"
@@ -212,6 +214,7 @@ target_link_libraries(NebulaBackup PUBLIC
 )
 
 add_executable(NebulaBackupTests
+	"tests/Base32Tests.cpp"
 	"tests/DataStoreTests.cpp"
 	"tests/RollingHashTest.cpp"
 	"tests/RepositoryTests.cpp"

@@ -116,7 +116,7 @@ TEST(RepositoryTests, SmallFileUploadTest)
 			
 			MemoryOutputStream readStream(randomData2, sizeof(randomData2));
 			EXPECT_FALSE(repo.downloadFile(snapshot.get(), "/not/exist", readStream));
-			EXPECT_TRUE(repo.downloadFile(snapshot.get(), "/random/path/to/file", readStream));
+			EXPECT_TRUE(repo.downloadFile(snapshot.get(), "random/path/to/file", readStream));
 			EXPECT_TRUE(memcmp(randomData1, randomData2, sizeof(randomData1)) == 0);
 		}
 	}
@@ -163,7 +163,7 @@ TEST(RepositoryTests, LargeFileUploadTest)
 			randomData2.resize(4 * 1024 * 1024);
 			MemoryOutputStream readStream(&randomData2[0], randomData2.size());
 			EXPECT_FALSE(repo.downloadFile(snapshot.get(), "/not/exist", readStream));
-			EXPECT_TRUE(repo.downloadFile(snapshot.get(), "/random/path/to/file", readStream));
+			EXPECT_TRUE(repo.downloadFile(snapshot.get(), "random/path/to/file", readStream));
 			EXPECT_TRUE(memcmp(&randomData1[0], &randomData2[0], randomData1.size()) == 0);
 		}
 	}
@@ -199,11 +199,11 @@ TEST(RepositoryTests, SnapshotTest)
 		fout.close();
 		
 		FileStream fin(tmpFile.c_str(), FileMode::Read);
-		repo.uploadFile(snapshot.get(), "/file1", fin, DefaultProgressFunction);
+		repo.uploadFile(snapshot.get(), "/file1", fin);
 		fin.rewind();
-		repo.uploadFile(snapshot.get(), "/file2", fin, DefaultProgressFunction);
+		repo.uploadFile(snapshot.get(), "/file2", fin);
 		fin.rewind();
-		repo.uploadFile(snapshot.get(), "/file3", fin, DefaultProgressFunction);
+		repo.uploadFile(snapshot.get(), "/file3", fin);
 		
 		EXPECT_NO_THROW(repo.commitSnapshot(snapshot.get(), "test-snapshot"));
 		
