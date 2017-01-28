@@ -157,6 +157,7 @@ namespace Nebula
 		}
 		
 		*pptr() = c;
+		pbump(1);
 		
 		return c;
 	}
