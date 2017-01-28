@@ -31,7 +31,9 @@
 #include "libnebula/DataStore.h"
 #include "libnebula/backends/FileDataStore.h"
 #include "libnebula/backends/SshDataStore.h"
+#include "libnebula/backends/AwsS3DataStore.h"
 #include "libnebula/FileStream.h"
+#include "libnebula/ZeroedArray.h"
 #include "libnebula/Exception.h"
 #include "libnebula/FileInfo.h"
 #include "libnebula/Repository.h"
@@ -61,9 +63,10 @@ static void printHelp()
 	printf(" -u, --username=USER      SSH username\n");
 	printf(" -p, --password=PASSWORD  SSH password\n");
 	printf("\n");
-	printf("s3 backend options:\n");
-	printf("     --aws-bucket=BUCKET  AWS bucket\n");
-	printf("     --aws-token=TOKEN    AWS token\n");
+	printf("s3 backend environment variables and options:\n");
+	printf("     AWS_BUCKET           AWS bucket\n");
+	printf("     AWS_ACCESS_KEY       AWS access key\n");
+	printf("     AWS_SECRET_KEY       AWS secret key\n");
 	printf("\n");
 }
 
@@ -73,6 +76,7 @@ struct Options
 	bool verify;
 	bool dryRun;
 	bool force;
+	std::string backend;
 
 	Options()
 	: quiet(false)
@@ -83,57 +87,34 @@ struct Options
 
 static Options options;
 
-static std::shared_ptr<Nebula::DataStore> createDataStoreFromRepository(const char *repo)
-{
-	using namespace Nebula;
-	using namespace boost;
-
-#if 0
-	// guess the format
-	const char sshProto[] = "ssh://";
-	if(strncmp(repo, sshProto, sizeof(sshProto) - 1) == 0) {
-		
-	}
-	//
-#endif
-
-	filesystem::path path = repo;
-	
-	if(!filesystem::exists(path)) {
-		throw InvalidRepositoryException("Repository not found at path.");
-	}
-
-	return std::make_shared<FileDataStore>(path);
-}
-
 static void enableConsoleOutput(bool enable)
 {
 #ifdef _WIN32
 #else
 	struct termios tty;
 	tcgetattr(STDIN_FILENO, &tty);
-
+	
 	if(enable) {
 		tty.c_lflag |= ECHO;
 	} else {
 		tty.c_lflag &= ~ECHO;
 	}
-
+	
 	tcsetattr(STDIN_FILENO, TCSANOW, &tty);
 #endif
 }
 
-Nebula::ZeroedString promptReadPassword(bool confirm)
+static Nebula::ZeroedString promptReadPassword(bool confirm)
 {
 	using namespace Nebula;
-
+	
 	char passwd1[64], passwd2[64];
 	ZeroedString outPassword;
 	
 	enableConsoleOutput(false);
 	
 	std::unique_ptr<void, std::function<void (void *)>>
-		onExit(passwd1, [&passwd1, &passwd2](void *) {
+	onExit(passwd1, [&passwd1, &passwd2](void *) {
 		explicit_bzero(passwd1, sizeof(passwd1));
 		explicit_bzero(passwd2, sizeof(passwd2));
 		enableConsoleOutput(true);
@@ -151,21 +132,90 @@ Nebula::ZeroedString promptReadPassword(bool confirm)
 			throw InvalidDataException("Password string is too long.");
 		}
 		printf("\n");
-
+		
 		if(strncmp(passwd1, passwd2, sizeof(passwd1)) != 0) {
 			throw InvalidDataException("Passwords don't match.");
 		}
 	}
-
+	
 	// trim the new line
 	size_t n = strnlen(passwd1, sizeof(passwd1));
 	while (passwd1[--n] == '\n') {
 		passwd1[n] = 0;
 	}
-
+	
 	outPassword = passwd1;
-
+	
 	return outPassword;
+}
+
+static Nebula::ZeroedString promptInput(const char *prompt, bool isPassword = false)
+{
+	using namespace Nebula;
+
+	ZeroedArray<char, 64> inputString;
+	
+	if(isPassword) {
+		enableConsoleOutput(false);
+	}
+	
+	std::unique_ptr<void, std::function<void (void *)>>
+	onExit(&inputString, [isPassword](void *) {
+		if(isPassword) {
+			enableConsoleOutput(true);
+		}
+	});
+	
+	printf("%s: ", prompt);
+	if(!fgets(inputString.data(), inputString.size(), stdin)) {
+		throw InvalidDataException("Input is too long.");
+	}
+	printf("\n");
+
+	// trim the new line
+	size_t n = strnlen(inputString.data(), inputString.size());
+	while (inputString[--n] == '\n') {
+		inputString[n] = 0;
+	}
+	
+	return inputString.data();
+}
+
+static std::shared_ptr<Nebula::DataStore> createDataStoreFromRepository(const char *repo)
+{
+	using namespace Nebula;
+	using namespace boost;
+
+#if 0
+	// guess the format
+	const char sshProto[] = "ssh://";
+	if(strncmp(repo, sshProto, sizeof(sshProto) - 1) == 0) {
+		
+	}
+	//
+#endif
+
+	if(options.backend == "s3") {
+		ZeroedString bucket = getenv("AWS_BUCKET");
+		ZeroedString accessKey = getenv("AWS_ACCESS_KEY");
+		ZeroedString secretKey = getenv("AWS_SECRET_KEY");
+		
+		if(bucket.empty()) bucket = promptInput("Aws Bucket: ");
+		if(accessKey.empty()) accessKey = promptInput("Aws Access Key: ", true);
+		if(secretKey.empty()) secretKey = promptInput("Aws Secret Key: ", true);
+
+		return std::make_shared<AwsS3DataStore>(bucket.data(), accessKey, secretKey);
+	} else {
+		filesystem::path path = repo;
+		
+		if(!filesystem::exists(path)) {
+			throw InvalidRepositoryException("Repository not found at path.");
+		}
+		
+		return std::make_shared<FileDataStore>(path);
+	}
+
+	return nullptr;
 }
 
 static void initializeRepository(const char *repository)
@@ -513,12 +563,13 @@ int main(int argc, char *argv[])
 		{ "quiet", no_argument, 0, 'q' },
 		{ "dry-run", no_argument, 0, 'n' },
 		{ "verify", no_argument, 0, 0 },
+		{ "backend", required_argument, 0, 'b' },
 		{ 0, 0, 0, 0 }
 	};
 	
 	int c;
 	int optIndex;
-	while((c = getopt_long(argc, argv, "qnf", longOptions, &optIndex)) >= 0) {
+	while((c = getopt_long(argc, argv, "qnfb:", longOptions, &optIndex)) >= 0) {
 		switch (c) {
 			case 0:
 				if(strcmp(longOptions[optIndex].name, "verify") == 0) {
@@ -534,6 +585,10 @@ int main(int argc, char *argv[])
 			case 'f':
 				options.force = true;
 				break;
+			case 'b':
+				options.backend = optarg;
+				break;
+				
 			default:
 				printHelp();
 				return -1;
