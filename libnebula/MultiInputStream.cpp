@@ -63,4 +63,23 @@ namespace Nebula
 		
 		return sizeTotal;
 	}
+	
+	bool MultiInputStream::canRewind() const
+	{
+		for(auto& is : mStreamList) {
+			if(!is->canRewind()) return false;
+		}
+		
+		return true;
+	}
+	
+	void MultiInputStream::rewind()
+	{
+		if(canRewind()) {
+			for(auto& is : mStreamList) {
+				is->rewind();
+			}
+			mCurStream = mStreamList.begin();
+		}
+	}
 }

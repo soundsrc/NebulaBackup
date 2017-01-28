@@ -35,6 +35,9 @@ namespace Nebula
 		virtual size_t read(void *data, size_t size) override;
 		
 		virtual long size() const override;
+		
+		virtual bool canRewind() const override;
+		virtual void rewind() override;
 	private:
 		std::vector<InputStream *> mStreamList;
 		std::vector<InputStream *>::iterator mCurStream;

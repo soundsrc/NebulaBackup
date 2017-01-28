@@ -33,6 +33,6 @@ namespace Nebula
 		}
 		
 		memcpy(mNext, data, size);
-		mNext += size;;
+		mNext += size;
 	}
 }

@@ -48,6 +48,9 @@ namespace Nebula
 		
 		virtual size_t read(void *data, size_t size) override;
 		virtual long size() const override;
+		
+		virtual bool canRewind() const override;
+		virtual void rewind() override;
 	};
 	
 	size_t EncryptedHMACStream::read(void *data, size_t size)
@@ -58,6 +61,16 @@ namespace Nebula
 	long EncryptedHMACStream::size() const
 	{
 		return mInputStream.size();
+	}
+	
+	bool EncryptedHMACStream::canRewind() const
+	{
+		return mInputStream.canRewind();
+	}
+	
+	void EncryptedHMACStream::rewind()
+	{
+		mInputStream.rewind();
 	}
 	
 	std::shared_ptr<InputStream> StreamUtils::compressEncryptHMAC(CompressionType compressType, const EVP_CIPHER *cipher, const uint8_t *encKey, const uint8_t *macKey, InputStream& inStream)
