@@ -26,6 +26,8 @@ set (NEBULA_BACKUP_LIBS
 	 "crypto"
 	 "ssh_shared"
 	 "aws-cpp-sdk-s3"
+	 "aws-cpp-sdk-core"
+	 "aws-cpp-sdk-transfer"
 )
 
 if(APPLE)
@@ -191,6 +193,8 @@ add_library(Nebula SHARED
 	"libnebula/backends/FileDataStore.h"
 	"libnebula/backends/SSHDataStore.cpp"
 	"libnebula/backends/SSHDataStore.h"
+	"libnebula/backends/AwsS3DataStore.cpp"
+	"libnebula/backends/AwsS3DataStore.h"
 )
 target_include_directories(Nebula PUBLIC
 	${NEBULA_BACKUP_INCLUDES}
@@ -202,6 +206,9 @@ target_link_libraries(Nebula PUBLIC
 	"ssl"
 	"crypto"
 	"ssh_shared"
+	"aws-cpp-sdk-s3"
+	"aws-cpp-sdk-core"
+	"aws-cpp-sdk-transfer"
 )
 
 if (APPLE)
