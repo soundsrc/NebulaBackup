@@ -64,7 +64,7 @@ static void printHelp()
 	printf(" -p, --password=PASSWORD  SSH password\n");
 	printf("\n");
 	printf("s3 backend environment variables and options:\n");
-	printf("     AWS_BUCKET           AWS bucket\n");
+	printf("     <repo>               AWS bucket name\n");
 	printf("     AWS_ACCESS_KEY       AWS access key\n");
 	printf("     AWS_SECRET_KEY       AWS secret key\n");
 	printf("\n");
@@ -196,11 +196,10 @@ static std::shared_ptr<Nebula::DataStore> createDataStoreFromRepository(const ch
 #endif
 
 	if(options.backend == "s3") {
-		ZeroedString bucket = getenv("AWS_BUCKET");
+		ZeroedString bucket = repo;
 		ZeroedString accessKey = getenv("AWS_ACCESS_KEY");
 		ZeroedString secretKey = getenv("AWS_SECRET_KEY");
 		
-		if(bucket.empty()) bucket = promptInput("Aws Bucket: ");
 		if(accessKey.empty()) accessKey = promptInput("Aws Access Key: ", true);
 		if(secretKey.empty()) secretKey = promptInput("Aws Secret Key: ", true);
 
