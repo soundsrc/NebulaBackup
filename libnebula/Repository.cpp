@@ -292,7 +292,7 @@ namespace Nebula
 		CompressionType compressionType = CompressionType::LZMA2;
 
 		RollingHash rh(mRollKey, 8192);
-		uint8_t fileSHA256[SHA256_DIGEST_LENGTH];
+		uint8_t fileMD5[MD5_DIGEST_LENGTH];
 	
 		FileInfo fileInfo( fileStream.path().c_str() );
 		if(!fileInfo.exists()) {
@@ -302,9 +302,13 @@ namespace Nebula
 		std::vector<Snapshot::BlockHash> blockHashes;
 		blockHashes.reserve(32);
 		
-		SHA256_CTX sha256;
-		if(!SHA256_Init(&sha256)) {
-			throw EncryptionFailedException("SHA256_Init failed.");
+		EVP_MD_CTX md5;
+		EVP_MD_CTX_init(&md5);
+		std::unique_ptr<EVP_MD_CTX, decltype(EVP_MD_CTX_cleanup) *>
+			cleanup(&md5, EVP_MD_CTX_cleanup);
+		
+		if(!EVP_DigestInit(&md5, EVP_md5())) {
+			throw EncryptionFailedException("EVP_DigestInit failed.");
 		}
 		
 		size_t fileLength = fileInfo.length();
@@ -340,8 +344,8 @@ namespace Nebula
 				throw FileIOException("Failed to read file.");
 			}
 			
-			if(!SHA256_Update(&sha256, buffer.get(), fileLength)) {
-				throw EncryptionFailedException("SHA256_Update failed.");
+			if(!EVP_DigestUpdate(&md5, buffer.get(), fileLength)) {
+				throw EncryptionFailedException("EVP_DigestUpdate failed.");
 			}
 			
 			Snapshot::BlockHash blockHash;
@@ -379,8 +383,8 @@ namespace Nebula
 				if(blockBuffer.size() >= minBlockSize &&
 				   ((rh.roll(b) & hashMask) == 0 || blockBuffer.size() >= mOptions.maxBlockSize)) {
 					
-					if(!SHA256_Update(&sha256, &blockBuffer[0], blockBuffer.size())) {
-						throw EncryptionFailedException("SHA256_Update failed.");
+					if(!EVP_DigestUpdate(&md5, &blockBuffer[0], blockBuffer.size())) {
+						throw EncryptionFailedException("EVP_DigestUpdate failed.");
 					}
 					
 					Snapshot::BlockHash blockHash;
@@ -399,8 +403,8 @@ namespace Nebula
 			
 			if(!blockBuffer.empty()) {
 				Snapshot::BlockHash blockHash;
-				if(!SHA256_Update(&sha256, &blockBuffer[0], blockBuffer.size())) {
-					throw EncryptionFailedException("SHA256_Update failed.");
+				if(!EVP_DigestUpdate(&md5, &blockBuffer[0], blockBuffer.size())) {
+					throw EncryptionFailedException("EVP_DigestUpdate failed.");
 				}
 				
 				computeBlockHMAC(&blockBuffer[0], blockBuffer.size(), (uint8_t)compressionType, blockHash.hmac256);
@@ -413,9 +417,9 @@ namespace Nebula
 			}
 		}
 		
-		// write the SHA256
-		if(!SHA256_Final(fileSHA256, &sha256)) {
-			throw EncryptionFailedException("SHA256_Final failed.");
+		// write the digest
+		if(!EVP_DigestFinal(&md5, fileMD5, nullptr)) {
+			throw EncryptionFailedException("EVP_DigestFinal failed.");
 		}
 		
 		// normalize destPath
@@ -431,7 +435,7 @@ namespace Nebula
 							   fileInfo.length(),
 							   fileInfo.lastModifyTime(),
 							   blockSizeLog,
-							   fileSHA256,
+							   fileMD5,
 							   blockHashes.size(),
 							   &blockHashes[0]);
 	}

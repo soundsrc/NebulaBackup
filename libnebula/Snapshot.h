@@ -23,6 +23,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <openssl/sha.h>
+#include <openssl/md5.h>
 #include "ProgressFunction.h"
 #include "FileInfo.h"
 #include "ZeroedString.h"
@@ -63,7 +64,7 @@ namespace Nebula
 			uint8_t type; // flags
 			uint8_t blockSizeLog;
 			uint16_t numBlocks;
-			uint8_t sha256[SHA256_DIGEST_LENGTH];
+			uint8_t md5[MD5_DIGEST_LENGTH];
 			int blockIndex;
 		};
 
@@ -76,7 +77,7 @@ namespace Nebula
 						  uint64_t size,
 						  time_t mtime,
 						  uint8_t blockSizeLog,
-						  const uint8_t *sha256,
+						  const uint8_t *md5,
 						  int numBlocks,
 						  const BlockHash *blockHashes);
 		

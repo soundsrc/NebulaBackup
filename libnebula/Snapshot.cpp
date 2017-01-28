@@ -22,6 +22,7 @@
 #include <boost/filesystem.hpp>
 #include <openssl/hmac.h>
 #include <openssl/sha.h>
+#include <openssl/md5.h>
 #include "Exception.h"
 #include "DataStore.h"
 #include "TempFileStream.h"
@@ -54,7 +55,7 @@ namespace Nebula
 					  uint64_t size,
 					  time_t mtime,
 					  uint8_t blockSizeLog,
-					  const uint8_t *sha256,
+					  const uint8_t *md5,
 					  int numBlocks,
 					  const BlockHash *blockHashes)
 	{
@@ -79,7 +80,7 @@ namespace Nebula
 		fe.size = size;
 		fe.mtime = mtime;
 		fe.blockSizeLog = blockSizeLog;
-		memcpy(fe.sha256, sha256, SHA256_DIGEST_LENGTH);
+		memcpy(fe.md5, md5, MD5_DIGEST_LENGTH);
 		fe.numBlocks = numBlocks;
 		fe.blockIndex = addBlockHashes(blockHashes, numBlocks);
 		mFiles.insert(std::make_pair(path, fe));
@@ -174,7 +175,7 @@ namespace Nebula
 			fe.numBlocks = inStream.readType<uint16_t>();
 			fe.size = inStream.readType<uint64_t>();
 			fe.mtime = inStream.readType<uint64_t>();
-			inStream.readExpected(fe.sha256, SHA256_DIGEST_LENGTH);
+			inStream.readExpected(fe.md5, MD5_DIGEST_LENGTH);
 			fe.blockIndex = inStream.readType<uint32_t>();
 			
 			std::string path = std::string(indexToString(fe.pathIndex)) + "/" + indexToString(fe.nameIndex);
@@ -214,7 +215,7 @@ namespace Nebula
 			outStream.writeType<uint16_t>(fe.numBlocks);
 			outStream.writeType<uint64_t>(fe.size);
 			outStream.writeType<uint64_t>(fe.mtime);
-			outStream.write(fe.sha256, SHA256_DIGEST_LENGTH);
+			outStream.write(fe.md5, MD5_DIGEST_LENGTH);
 			outStream.writeType<uint32_t>(fe.blockIndex);
 		}
 	}

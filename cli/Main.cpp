@@ -28,6 +28,7 @@
 #include <functional>
 #include <strstream>
 #include <boost/filesystem.hpp>
+#include <openssl/evp.h>
 #include "libnebula/DataStore.h"
 #include "libnebula/backends/FileDataStore.h"
 #include "libnebula/backends/SshDataStore.h"
@@ -500,25 +501,29 @@ static void downloadFiles(const char *repository, const char *snapshotName, int 
 					uint8_t buffer[8192];
 					size_t n;
 
-					SHA256_CTX ctx;
 					FileStream inStream(filePath.c_str(), FileMode::Read);
 					
-					if(!SHA256_Init(&ctx)) {
-						throw VerificationFailedException("SHA256_Init() failed.");
+					EVP_MD_CTX ctx;
+					EVP_MD_CTX_init(&ctx);
+					std::unique_ptr<EVP_MD_CTX, decltype(EVP_MD_CTX_cleanup) *>
+						cleanup(&ctx, EVP_MD_CTX_cleanup);
+
+					if(!EVP_DigestInit(&ctx, EVP_md5())) {
+						throw VerificationFailedException("EVP_DigestInit() failed.");
 					}
 
 					while((n = inStream.read(buffer, sizeof(buffer))) > 0) {
-						if(!SHA256_Update(&ctx, buffer, n)) {
-							throw VerificationFailedException("SHA256_Update() failed.");
+						if(!EVP_DigestUpdate(&ctx, buffer, n)) {
+							throw VerificationFailedException("EVP_DigestUpdate() failed.");
 						}
 					}
 
-					uint8_t md[SHA256_DIGEST_LENGTH];
-					if(!SHA256_Final(md, &ctx)) {
-						throw VerificationFailedException("SHA256_Final() failed.");
+					uint8_t md[MD5_DIGEST_LENGTH];
+					if(!EVP_DigestFinal(&ctx, md, nullptr)) {
+						throw VerificationFailedException("EVP_DigestFinal() failed.");
 					}
-					
-					if(memcmp(md, fe.sha256, SHA256_DIGEST_LENGTH) != 0) {
+
+					if(memcmp(md, fe.md5, MD5_DIGEST_LENGTH) != 0) {
 						std::strstream str;
 						str << filePath.string() << ": File verification failed. ";
 						throw VerificationFailedException(str.str());

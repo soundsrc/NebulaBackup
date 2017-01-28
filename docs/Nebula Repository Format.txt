@@ -52,7 +52,7 @@ Nebula Repository Format
 			numBlocks       u16      Number of blocks in the file
 			size            u64      Size of the file
 			mtime           u64      Last modify time
-			sha256          u8[32]   SHA256 of file
+			md5             u8[16]   MD5 of file
 			blockTableIndex u32      Index to the sha table
 		}
 	}
