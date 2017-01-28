@@ -36,7 +36,7 @@ Nebula Repository Format
 		stringTable       u8[stringTableSize * 4]
 		blockTable        ...[numBlockEntries]
 		{
-			sha256        u8[32]    HMAC(macKey, blockData)
+			hmacsha256    u8[32]    HMAC(macKey, blockData)
 		}
 		fileInfoList      ...[numFiles]
 		{
@@ -53,7 +53,8 @@ Nebula Repository Format
 			size            u64      Size of the file
 			mtime           u64      Last modify time
 			md5             u8[16]   MD5 of file
-			blockTableIndex u32      Index to the sha table
+			offset			u32      Offset into the first block
+			blockTableIndex u32      Index to the block table
 		}
 	}
 

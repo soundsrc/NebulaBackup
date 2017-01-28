@@ -436,6 +436,7 @@ namespace Nebula
 							   fileInfo.lastModifyTime(),
 							   blockSizeLog,
 							   fileMD5,
+							   0, // 0 for now, not supported
 							   blockHashes.size(),
 							   &blockHashes[0]);
 	}

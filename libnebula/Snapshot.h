@@ -53,10 +53,10 @@ namespace Nebula
 		
 		struct FileEntry
 		{
-			int nameIndex; // filename
-			int pathIndex; // parent path to the file
-			int userIndex; // unix user id
-			int groupIndex; // unix group name
+			uint32_t nameIndex; // filename
+			uint32_t pathIndex; // parent path to the file
+			uint32_t userIndex; // unix user id
+			uint32_t groupIndex; // unix group name
 			uint16_t mode; // mode
 			uint8_t compression;
 			uint64_t size; // size of file in bytes
@@ -65,7 +65,8 @@ namespace Nebula
 			uint8_t blockSizeLog;
 			uint16_t numBlocks;
 			uint8_t md5[MD5_DIGEST_LENGTH];
-			int blockIndex;
+			uint32_t offset;
+			uint32_t blockIndex;
 		};
 
 		void addFileEntry(const char *path,
@@ -78,6 +79,7 @@ namespace Nebula
 						  time_t mtime,
 						  uint8_t blockSizeLog,
 						  const uint8_t *md5,
+						  uint32_t offset,
 						  int numBlocks,
 						  const BlockHash *blockHashes);
 		

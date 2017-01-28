@@ -56,6 +56,7 @@ namespace Nebula
 					  time_t mtime,
 					  uint8_t blockSizeLog,
 					  const uint8_t *md5,
+					  uint32_t offset,
 					  int numBlocks,
 					  const BlockHash *blockHashes)
 	{
@@ -82,6 +83,7 @@ namespace Nebula
 		fe.blockSizeLog = blockSizeLog;
 		memcpy(fe.md5, md5, MD5_DIGEST_LENGTH);
 		fe.numBlocks = numBlocks;
+		fe.offset = offset;
 		fe.blockIndex = addBlockHashes(blockHashes, numBlocks);
 		mFiles.insert(std::make_pair(path, fe));
 	}
@@ -176,6 +178,7 @@ namespace Nebula
 			fe.size = inStream.readType<uint64_t>();
 			fe.mtime = inStream.readType<uint64_t>();
 			inStream.readExpected(fe.md5, MD5_DIGEST_LENGTH);
+			fe.offset = inStream.readType<uint32_t>();
 			fe.blockIndex = inStream.readType<uint32_t>();
 			
 			std::string path = std::string(indexToString(fe.pathIndex)) + "/" + indexToString(fe.nameIndex);
@@ -216,6 +219,7 @@ namespace Nebula
 			outStream.writeType<uint64_t>(fe.size);
 			outStream.writeType<uint64_t>(fe.mtime);
 			outStream.write(fe.md5, MD5_DIGEST_LENGTH);
+			outStream.writeType<uint32_t>(fe.offset);
 			outStream.writeType<uint32_t>(fe.blockIndex);
 		}
 	}
