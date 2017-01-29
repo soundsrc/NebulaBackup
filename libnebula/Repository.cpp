@@ -52,8 +52,8 @@ namespace Nebula
 	Repository::Options::Options()
 	: smallFileSize(512000)
 	, maxBlockSize(50000000)
-	, minBlockSizeLog(16)
-	, maxBlockSizeLog(25)
+	, minRollingHashBits(18)
+	, maxRollingHashBits(25)
 	, blockSplitCount(8)
 	{
 	}
@@ -312,7 +312,7 @@ namespace Nebula
 		}
 		
 		size_t fileLength = fileInfo.length();
-		int blockSizeLog = 0;
+		int rollingHashBits = 0;
 		
 		std::string ext = fileInfo.extension();
 		std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
@@ -360,10 +360,10 @@ namespace Nebula
 			
 			// the block size is dynamically determined based on file length
 			// and increases bigger for larger file sizes
-			blockSizeLog = ceil(log(fileLength / mOptions.blockSplitCount) / log(2));
-			if(blockSizeLog < mOptions.minBlockSizeLog) blockSizeLog = mOptions.minBlockSizeLog;
-			if(blockSizeLog > mOptions.maxBlockSizeLog) blockSizeLog = mOptions.maxBlockSizeLog;
-			uint64_t hashMask = (1 << blockSizeLog) - 1;
+			rollingHashBits = ceil(log(fileLength / mOptions.blockSplitCount) / log(2));
+			if(rollingHashBits < mOptions.minRollingHashBits) rollingHashBits = mOptions.minRollingHashBits;
+			if(rollingHashBits > mOptions.maxRollingHashBits) rollingHashBits = mOptions.maxRollingHashBits;
+			uint64_t hashMask = (1 << rollingHashBits) - 1;
 			
 			// the minimum block size, sometimes with the rolling hash algorithm
 			// you can get a stream of blocks sizes of 1 due to the right combination
@@ -373,7 +373,7 @@ namespace Nebula
 			long minBlockSize = std::max(4096, (int)((fileLength + 65534) / 65535));
 
 			std::vector<uint8_t> blockBuffer;
-			blockBuffer.reserve(std::min(1 << (1 + blockSizeLog), mOptions.maxBlockSize));
+			blockBuffer.reserve(std::min(1 << (1 + rollingHashBits), mOptions.maxBlockSize));
 
 			int blockCount = 0;
 			BufferedInputStream bufferedFile(fileStream);
@@ -434,7 +434,7 @@ namespace Nebula
 							   compressionType,
 							   fileInfo.length(),
 							   fileInfo.lastModifyTime(),
-							   blockSizeLog,
+							   rollingHashBits,
 							   fileMD5,
 							   0, // 0 for now, not supported
 							   objectIds.size(),
@@ -451,14 +451,14 @@ namespace Nebula
 		}
 
 		const Snapshot::ObjectID *objectIds = snapshot->indexToObjectID(fe->objectIdIndex);
-		for(int i = 0; i < fe->numBlocks; ++i) {
+		for(int i = 0; i < fe->objectCount; ++i) {
 			std::string objectPath = "/data/" + objectIdToString(objectIds[i]);
 
 			// download the object to tmpFile
 			TempFileStream tmpStream;
 			mDataStore->get(objectPath.c_str(), tmpStream,
 							[&progress, i, fe] (long bytesDownloaded, long bytesTotal) -> bool {
-								return progress(i, fe->numBlocks, bytesDownloaded, bytesTotal);
+								return progress(i, fe->objectCount, bytesDownloaded, bytesTotal);
 							});
 
 			StreamUtils::decompressDecryptHMAC((CompressionType)fe->compression, EVP_aes_256_cbc(), mEncKey, mMacKey, *tmpStream.inputStream(), fileStream);

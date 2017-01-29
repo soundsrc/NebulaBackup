@@ -62,8 +62,8 @@ namespace Nebula
 			uint64_t size; // size of file in bytes
 			time_t mtime; // modify time
 			uint8_t type; // flags
-			uint8_t blockSizeLog;
-			uint16_t numBlocks;
+			uint8_t rollingHashBits;
+			uint16_t objectCount;
 			uint8_t md5[MD5_DIGEST_LENGTH];
 			uint32_t offset;
 			uint32_t objectIdIndex;
@@ -77,12 +77,12 @@ namespace Nebula
 						  CompressionType compression,
 						  uint64_t size,
 						  time_t mtime,
-						  uint8_t blockSizeLog,
+						  uint8_t rollingHashBits,
 						  const uint8_t *md5,
 						  uint32_t offset,
-						  int numBlocks,
+						  int objectCount,
 						  const ObjectID *objectIds);
-		
+
 		const FileEntry *getFileEntry(const char *path);
 	
 

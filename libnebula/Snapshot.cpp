@@ -54,18 +54,18 @@ namespace Nebula
 					  CompressionType compression,
 					  uint64_t size,
 					  time_t mtime,
-					  uint8_t blockSizeLog,
+					  uint8_t rollingHashBits,
 					  const uint8_t *md5,
 					  uint32_t offset,
-					  int numBlocks,
+					  int objectCount,
 					  const ObjectID *objectIds)
 	{
 		using namespace boost;
 
 		std::lock_guard<std::recursive_mutex> lock(mMutex);
 		
-		if(numBlocks > std::numeric_limits<uint16_t>::max()) {
-			throw InvalidArgumentException("Too many blocks. Try a bigger block size.");
+		if(objectCount > std::numeric_limits<uint16_t>::max()) {
+			throw InvalidArgumentException("Too many objects. Try a bigger block size.");
 		}
 
 		filesystem::path pathname(path);
@@ -80,11 +80,11 @@ namespace Nebula
 		fe.compression = (uint8_t)compression;
 		fe.size = size;
 		fe.mtime = mtime;
-		fe.blockSizeLog = blockSizeLog;
+		fe.rollingHashBits = rollingHashBits;
 		memcpy(fe.md5, md5, MD5_DIGEST_LENGTH);
-		fe.numBlocks = numBlocks;
+		fe.objectCount = objectCount;
 		fe.offset = offset;
-		fe.objectIdIndex = addObjectIds(objectIds, numBlocks);
+		fe.objectIdIndex = addObjectIds(objectIds, objectCount);
 		mFiles.insert(std::make_pair(path, fe));
 	}
 	
@@ -173,8 +173,8 @@ namespace Nebula
 			fe.compression = inStream.readType<uint8_t>();
 			inStream.readType<uint8_t>();
 			fe.type = inStream.readType<uint8_t>();
-			fe.blockSizeLog = inStream.readType<uint8_t>();
-			fe.numBlocks = inStream.readType<uint16_t>();
+			fe.rollingHashBits = inStream.readType<uint8_t>();
+			fe.objectCount = inStream.readType<uint16_t>();
 			fe.size = inStream.readType<uint64_t>();
 			fe.mtime = inStream.readType<uint64_t>();
 			inStream.readExpected(fe.md5, MD5_DIGEST_LENGTH);
@@ -214,8 +214,8 @@ namespace Nebula
 			outStream.writeType<uint8_t>(fe.compression);
 			outStream.writeType<uint8_t>(0);
 			outStream.writeType<uint8_t>(fe.type);
-			outStream.writeType<uint8_t>(fe.blockSizeLog);
-			outStream.writeType<uint16_t>(fe.numBlocks);
+			outStream.writeType<uint8_t>(fe.rollingHashBits);
+			outStream.writeType<uint16_t>(fe.objectCount);
 			outStream.writeType<uint64_t>(fe.size);
 			outStream.writeType<uint64_t>(fe.mtime);
 			outStream.write(fe.md5, MD5_DIGEST_LENGTH);

@@ -26,17 +26,17 @@ Nebula Repository Format
 /snapshots/<snapshot-name>:
 	snapshots are compressed LZMA2
 
-	uncompressedSize  u32     Uncompressed size
-	hmac              u8[32]  HMAC(macKey, LZMA2(data))
-	data              u8[...] 
+	hmac              u8[32]  HMAC(macKey, iv|LZMA2(data))
+	iv                u8[16]
+	data              u8[...]
 	{
 		numFiles          u32   Number of files
 		stringTableSize   u32   Size of string table / 4
-		numBlockEntries   u32   Number of SHA256
+		numObjectIds      u32   Number of object ids
 		stringTable       u8[stringTableSize * 4]
-		blockTable        ...[numBlockEntries]
+		objectIdList      ...[numObjectIds]
 		{
-			hmacsha256    u8[32]    HMAC(macKey, blockData)
+			id    u8[32]  Object id
 		}
 		fileInfoList      ...[numFiles]
 		{
@@ -48,18 +48,18 @@ Nebula Repository Format
 			compression		u8       Compression type (0 = uncompressed, 1 = LZMA2)
 			reserved        u8
 			type            u8       Type
-			blockSizeLog    u8       Block size in 2^i (2^blockSizeLog)
-			numBlocks       u16      Number of blocks in the file
+			rollingHashBits u8       The rolling hash mask ((2^rollingHashBits) - 1)
+			objectCount     u16      Number of object in the file
 			size            u64      Size of the file
 			mtime           u64      Last modify time
 			md5             u8[16]   MD5 of file
 			offset			u32      Offset into the first block
-			blockTableIndex u32      Index to the block table
+			objectIdIndex   u32      Index to the block table
 		}
 	}
 
-/data/<object>:
-	- The filename is HMAC(hashKey, <object>)
+/data/<object-id>:
+	- The filename is HMAC(hashKey, <object-id>)
 	hmac              u8[32]   HMAC(macKey, iv|data)
 	iv                u8[16]   IV for decryption
-	data              u8[...]  AES256-CBC encrypted LZMA of data
+	data              u8[...]  AES256-CBC encrypted data

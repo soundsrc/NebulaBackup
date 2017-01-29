@@ -50,10 +50,10 @@ namespace Nebula
 			int maxBlockSize;
 			
 			/// Minimum block size log
-			int minBlockSizeLog;
+			int minRollingHashBits;
 			
 			/// Maximum block size log
-			int maxBlockSizeLog;
+			int maxRollingHashBits;
 			
 			/// when dynamically splitting blocks, increasing the blockSplitCount
 			/// increases the average number of chunks the file with be split 
