@@ -58,7 +58,7 @@ namespace Nebula
 					  const uint8_t *md5,
 					  uint32_t offset,
 					  int numBlocks,
-					  const BlockHash *blockHashes)
+					  const ObjectID *objectIds)
 	{
 		using namespace boost;
 
@@ -84,7 +84,7 @@ namespace Nebula
 		memcpy(fe.md5, md5, MD5_DIGEST_LENGTH);
 		fe.numBlocks = numBlocks;
 		fe.offset = offset;
-		fe.blockIndex = addBlockHashes(blockHashes, numBlocks);
+		fe.objectIdIndex = addObjectIds(objectIds, numBlocks);
 		mFiles.insert(std::make_pair(path, fe));
 	}
 	
@@ -143,7 +143,7 @@ namespace Nebula
 		
 		uint32_t numFiles = inStream.readType<uint32_t>();
 		uint32_t stringTableSize = inStream.readType<uint32_t>() * 4;
-		uint32_t hashesCount = inStream.readType<uint32_t>();
+		uint32_t numObjects = inStream.readType<uint32_t>();
 		
 		mStringBuffer.resize(stringTableSize);
 		inStream.readExpected(&mStringBuffer[0], stringTableSize);
@@ -158,9 +158,9 @@ namespace Nebula
 			while(!*p && p < end) ++p;
 		}
 		
-		mBlockHashes.resize(hashesCount);
-		for(int i = 0; i < hashesCount; ++i) {
-			inStream.readExpected(mBlockHashes[i].hmac256, SHA256_DIGEST_LENGTH);
+		mObjectIDs.resize(numObjects);
+		for(int i = 0; i < numObjects; ++i) {
+			inStream.readExpected(mObjectIDs[i].id, SHA256_DIGEST_LENGTH);
 		}
 		
 		for(int i = 0; i < numFiles; ++i) {
@@ -179,7 +179,7 @@ namespace Nebula
 			fe.mtime = inStream.readType<uint64_t>();
 			inStream.readExpected(fe.md5, MD5_DIGEST_LENGTH);
 			fe.offset = inStream.readType<uint32_t>();
-			fe.blockIndex = inStream.readType<uint32_t>();
+			fe.objectIdIndex = inStream.readType<uint32_t>();
 			
 			std::string path = std::string(indexToString(fe.pathIndex)) + "/" + indexToString(fe.nameIndex);
 			mFiles[path] = fe;
@@ -193,14 +193,14 @@ namespace Nebula
 		// file size, string table size, and block count
 		outStream.writeType<uint32_t>(mFiles.size());
 		outStream.writeType<uint32_t>((mStringBuffer.size() + 3) / 4); // string size is / 4
-		outStream.writeType<uint32_t>(mBlockHashes.size());
+		outStream.writeType<uint32_t>(mObjectIDs.size());
 		
 		// string table
 		outStream.write(&mStringBuffer[0], (mStringBuffer.size() + 3) & ~3);
 		
 		// block hashes
-		for(int i = 0; i < mBlockHashes.size(); ++i) {
-			outStream.write(mBlockHashes[i].hmac256, SHA256_DIGEST_LENGTH);
+		for(int i = 0; i < mObjectIDs.size(); ++i) {
+			outStream.write(mObjectIDs[i].id, SHA256_DIGEST_LENGTH);
 		}
 		
 		for(auto& fkv : mFiles)
@@ -220,7 +220,7 @@ namespace Nebula
 			outStream.writeType<uint64_t>(fe.mtime);
 			outStream.write(fe.md5, MD5_DIGEST_LENGTH);
 			outStream.writeType<uint32_t>(fe.offset);
-			outStream.writeType<uint32_t>(fe.blockIndex);
+			outStream.writeType<uint32_t>(fe.objectIdIndex);
 		}
 	}
 
@@ -232,12 +232,12 @@ namespace Nebula
 		return (const char *)&mStringBuffer[n];
 	}
 	
-	const Snapshot::BlockHash *Snapshot::indexToBlockHash(int n) const
+	const Snapshot::ObjectID *Snapshot::indexToObjectID(int n) const
 	{
-		if(n < 0 || n >= mBlockHashes.size()) {
+		if(n < 0 || n >= mObjectIDs.size()) {
 			throw IndexOutOfBoundException("Index is out of bound.");
 		}
-		return &mBlockHashes[n];
+		return &mObjectIDs[n];
 	}
 	
 	int Snapshot::insertStringTable(const char *str)
@@ -257,10 +257,10 @@ namespace Nebula
 		return idx;
 	}
 	
-	int Snapshot::addBlockHashes(const BlockHash *blockHashes, int count)
+	int Snapshot::addObjectIds(const ObjectID *objectIds, int count)
 	{
-		int idx = mBlockHashes.size();
-		std::copy(blockHashes, blockHashes + count, std::back_inserter(mBlockHashes));
+		int idx = mObjectIDs.size();
+		std::copy(objectIds, objectIds + count, std::back_inserter(mObjectIDs));
 		return idx;
 	}
 }

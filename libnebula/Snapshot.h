@@ -46,9 +46,9 @@ namespace Nebula
 		Snapshot();
 		~Snapshot();
 
-		struct BlockHash
+		struct ObjectID
 		{
-			uint8_t hmac256[SHA256_DIGEST_LENGTH];
+			uint8_t id[SHA256_DIGEST_LENGTH];
 		};
 		
 		struct FileEntry
@@ -66,7 +66,7 @@ namespace Nebula
 			uint16_t numBlocks;
 			uint8_t md5[MD5_DIGEST_LENGTH];
 			uint32_t offset;
-			uint32_t blockIndex;
+			uint32_t objectIdIndex;
 		};
 
 		void addFileEntry(const char *path,
@@ -81,7 +81,7 @@ namespace Nebula
 						  const uint8_t *md5,
 						  uint32_t offset,
 						  int numBlocks,
-						  const BlockHash *blockHashes);
+						  const ObjectID *objectIds);
 		
 		const FileEntry *getFileEntry(const char *path);
 	
@@ -96,17 +96,17 @@ namespace Nebula
 		void load(InputStream& inStream);
 		
 		const char *indexToString(int n) const;
-		const BlockHash *indexToBlockHash(int n) const;
+		const ObjectID *indexToObjectID(int n) const;
 	private:
 		//
 		std::map<std::string, int> mStringTable;
 		std::vector<char, ZeroedAllocator<char>> mStringBuffer;
-		std::vector<BlockHash, ZeroedAllocator<BlockHash>> mBlockHashes;
+		std::vector<ObjectID, ZeroedAllocator<ObjectID>> mObjectIDs;
 		std::map<std::string, FileEntry, std::less<std::string>, ZeroedAllocator<FileEntry>> mFiles;
 
 		std::recursive_mutex mMutex;
 	
 		int insertStringTable(const char *str);
-		int addBlockHashes(const BlockHash *blockHashes, int count);
+		int addObjectIds(const ObjectID *objectIds, int count);
 	};
 }

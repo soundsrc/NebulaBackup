@@ -145,9 +145,9 @@ namespace Nebula
 		uint8_t *mRollKey;
 
 		void computeBlockHMAC(const uint8_t *block, size_t size, uint8_t compression, uint8_t *outHMAC);
-		void compressEncryptAndUploadBlock(CompressionType compressType, const uint8_t *blockHMAC, const uint8_t *block, size_t size, ProgressFunction progress);
+		void compressEncryptAndUploadBlock(CompressionType compressType, const Snapshot::ObjectID& objectId, const uint8_t *block, size_t size, ProgressFunction progress);
 
-		std::string hmac256ToString(const uint8_t *hmac) const;
+		std::string objectIdToString(const Snapshot::ObjectID& objectId) const;
 		
 		void writeRepositoryKey(const char *password, uint8_t logRounds = 17, ProgressFunction progress = DefaultProgressFunction);
 	};

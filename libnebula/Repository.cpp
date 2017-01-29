@@ -270,10 +270,10 @@ namespace Nebula
 		}
 	}
 	
-	void Repository::compressEncryptAndUploadBlock(CompressionType compressType, const uint8_t *blockHMAC, const uint8_t *block, size_t size, ProgressFunction progress)
+	void Repository::compressEncryptAndUploadBlock(CompressionType compressType, const Snapshot::ObjectID& objectId, const uint8_t *block, size_t size, ProgressFunction progress)
 	{
 		// if the block already exists in the repository, skip the upload
-		std::string uploadPath = "/data/" + hmac256ToString(blockHMAC);
+		std::string uploadPath = "/data/" + objectIdToString(objectId);
 		if(mDataStore->exist(uploadPath.c_str())) {
 			progress(size, size);
 			return;
@@ -299,8 +299,8 @@ namespace Nebula
 			throw FileNotFoundException("File not found.");
 		}
 
-		std::vector<Snapshot::BlockHash> blockHashes;
-		blockHashes.reserve(32);
+		std::vector<Snapshot::ObjectID> objectIds;
+		objectIds.reserve(32);
 		
 		EVP_MD_CTX md5;
 		EVP_MD_CTX_init(&md5);
@@ -348,13 +348,13 @@ namespace Nebula
 				throw EncryptionFailedException("EVP_DigestUpdate failed.");
 			}
 			
-			Snapshot::BlockHash blockHash;
-			computeBlockHMAC(buffer.get(), fileLength, (uint8_t)compressionType, blockHash.hmac256);
-			compressEncryptAndUploadBlock(compressionType, blockHash.hmac256, buffer.get(), fileLength,
+			Snapshot::ObjectID objectId;
+			computeBlockHMAC(buffer.get(), fileLength, (uint8_t)compressionType, objectId.id);
+			compressEncryptAndUploadBlock(compressionType, objectId, buffer.get(), fileLength,
 										  [&progress](long bytesUploaded, long bytesTotal) -> bool {
 											  return progress(0, 1, bytesUploaded, bytesTotal);
 										  });
-			blockHashes.push_back(blockHash);
+			objectIds.push_back(objectId);
 			
 		} else {
 			
@@ -387,33 +387,33 @@ namespace Nebula
 						throw EncryptionFailedException("EVP_DigestUpdate failed.");
 					}
 					
-					Snapshot::BlockHash blockHash;
+					Snapshot::ObjectID objectId;
 					// upload block
-					computeBlockHMAC(&blockBuffer[0], blockBuffer.size(), (uint8_t)compressionType, blockHash.hmac256);
-					compressEncryptAndUploadBlock(compressionType, blockHash.hmac256, &blockBuffer[0], blockBuffer.size(),
+					computeBlockHMAC(&blockBuffer[0], blockBuffer.size(), (uint8_t)compressionType, objectId.id);
+					compressEncryptAndUploadBlock(compressionType, objectId, &blockBuffer[0], blockBuffer.size(),
 												  [&progress, blockCount](long bytesUploaded, long bytesTotal) -> bool {
 													  return progress(blockCount, -1, bytesUploaded, bytesTotal);
 												  });
 					++blockCount;
 
-					blockHashes.push_back(blockHash);
+					objectIds.push_back(objectId);
 					blockBuffer.clear();
 				}
 			}
 			
 			if(!blockBuffer.empty()) {
-				Snapshot::BlockHash blockHash;
+				Snapshot::ObjectID objectId;
 				if(!EVP_DigestUpdate(&md5, &blockBuffer[0], blockBuffer.size())) {
 					throw EncryptionFailedException("EVP_DigestUpdate failed.");
 				}
 				
-				computeBlockHMAC(&blockBuffer[0], blockBuffer.size(), (uint8_t)compressionType, blockHash.hmac256);
-				compressEncryptAndUploadBlock(compressionType, blockHash.hmac256, &blockBuffer[0], blockBuffer.size(),
+				computeBlockHMAC(&blockBuffer[0], blockBuffer.size(), (uint8_t)compressionType, objectId.id);
+				compressEncryptAndUploadBlock(compressionType, objectId, &blockBuffer[0], blockBuffer.size(),
 											  [&progress, blockCount](long bytesUploaded, long bytesTotal) -> bool {
 												  return progress(blockCount, -1, bytesUploaded, bytesTotal);
 											  });
 				++blockCount;
-				blockHashes.push_back(blockHash);
+				objectIds.push_back(objectId);
 			}
 		}
 		
@@ -437,8 +437,8 @@ namespace Nebula
 							   blockSizeLog,
 							   fileMD5,
 							   0, // 0 for now, not supported
-							   blockHashes.size(),
-							   &blockHashes[0]);
+							   objectIds.size(),
+							   &objectIds[0]);
 	}
 	
 	bool Repository::downloadFile(Snapshot *snapshot, const char *srcPath, OutputStream& fileStream, FileTransferProgressFunction progress)
@@ -450,9 +450,9 @@ namespace Nebula
 			return false;
 		}
 
-		const Snapshot::BlockHash *blockHashes = snapshot->indexToBlockHash(fe->blockIndex);
+		const Snapshot::ObjectID *objectIds = snapshot->indexToObjectID(fe->objectIdIndex);
 		for(int i = 0; i < fe->numBlocks; ++i) {
-			std::string objectPath = "/data/" + hmac256ToString(blockHashes[i].hmac256);
+			std::string objectPath = "/data/" + objectIdToString(objectIds[i]);
 
 			// download the object to tmpFile
 			TempFileStream tmpStream;
@@ -467,10 +467,10 @@ namespace Nebula
 		return true;
 	}
 	
-	std::string Repository::hmac256ToString(const uint8_t *hmac) const
+	std::string Repository::objectIdToString(const Snapshot::ObjectID& objectId) const
 	{
 		char outStr[53];
-		base32encode(hmac, SHA256_DIGEST_LENGTH, outStr, sizeof(outStr));
+		base32encode(objectId.id, SHA256_DIGEST_LENGTH, outStr, sizeof(outStr));
 		return std::string(outStr, 2) + "/" + std::string(outStr + 2);
 	}
 }
