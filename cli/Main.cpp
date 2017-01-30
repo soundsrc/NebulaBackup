@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <time.h>
+#include <signal.h>
 
 #ifdef _WIN32
 #else
@@ -69,6 +70,12 @@ static void printHelp()
 	printf("     AWS_ACCESS_KEY       AWS access key\n");
 	printf("     AWS_SECRET_KEY       AWS secret key\n");
 	printf("\n");
+}
+
+static volatile bool sUserCancelled = false;
+static void sigHandler(int code)
+{
+	sUserCancelled = true;
 }
 
 struct Options
@@ -323,7 +330,7 @@ static void backupFiles(const char *repository, const char *snapshotName, int ar
 									fputs("\n", stdout);
 								}
 								printProgress(blockNo, blockMax, bytesUploaded, bytesTotal, startTime);
-								return true;
+								return !sUserCancelled;
 							});
 						if(!options.quiet) fputs("\n", stdout);
 					}
@@ -344,7 +351,7 @@ static void backupFiles(const char *repository, const char *snapshotName, int ar
 										fputs("\n", stdout);
 									}
 									printProgress(blockNo, blockMax, bytesDownloaded, bytesTotal, startTime);
-									return true;
+									return !sUserCancelled;
 								});
 				if(!options.quiet) fputs("\n", stdout);
 			}
@@ -492,7 +499,7 @@ static void downloadFiles(const char *repository, const char *snapshotName, int 
 								fputs("\n", stdout);
 							}
 							printProgress(blockNo, blockCount, bytesDownloaded, bytesTotal, startTime);
-							return true;
+							return !sUserCancelled;
 						});
 					if(!options.quiet) printf("\n");
 				}
@@ -604,6 +611,9 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
+	signal(SIGINT, sigHandler);
+	signal(SIGQUIT, sigHandler);
+	
 	try {
 		const char *action = argv[optind];
 		const char *repo = argv[optind + 1];
@@ -665,7 +675,7 @@ int main(int argc, char *argv[])
 				break;
 		}
 	} catch(const std::exception& e) {
-		fprintf(stderr, "error: %s\n", e.what());
+		fprintf(stderr, "\nerror: %s\n", e.what());
 	}
 
 	return 0;
