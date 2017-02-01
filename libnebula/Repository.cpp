@@ -275,7 +275,9 @@ namespace Nebula
 		// if the block already exists in the repository, skip the upload
 		std::string uploadPath = "/data/" + objectIdToString(objectId);
 		if(mDataStore->exist(uploadPath.c_str())) {
-			progress(size, size);
+			if(!progress(size, size)) {
+				throw CancelledException("User cancelled.");
+			}
 			return;
 		}
 		
