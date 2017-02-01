@@ -613,6 +613,7 @@ int main(int argc, char *argv[])
 
 	signal(SIGINT, sigHandler);
 	signal(SIGQUIT, sigHandler);
+	signal(SIGTERM, sigHandler);
 	
 	try {
 		const char *action = argv[optind];
