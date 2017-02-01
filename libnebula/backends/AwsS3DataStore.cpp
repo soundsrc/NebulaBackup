@@ -178,17 +178,19 @@ namespace Nebula
 		IOStreamOutputBuf outStreambuf(stream);
 		Aws::Transfer::TransferManagerConfiguration transferConfig;
 		transferConfig.s3Client = mClient;
-		
+
+		std::shared_ptr<Aws::Transfer::TransferHandle> transferHandle;
+
 		transferConfig.downloadProgressCallback =
-			[&progress](const Aws::Transfer::TransferManager *transferManager, const Aws::Transfer::TransferHandle& handle)
+			[&progress, &transferHandle](const Aws::Transfer::TransferManager *transferManager, const Aws::Transfer::TransferHandle& handle)
 			{
 				if(!progress(handle.GetBytesTransferred(), handle.GetBytesTotalSize())) {
-					
+					transferHandle->Cancel();
 				}
 			};
 		
 		Aws::Transfer::TransferManager transferManager(transferConfig);
-		auto transferHandle = transferManager.DownloadFile(mBucket, path, [&outStreambuf]() -> Aws::IOStream * {
+		transferHandle = transferManager.DownloadFile(mBucket, path, [&outStreambuf]() -> Aws::IOStream * {
 			return Aws::New<Aws::IOStream>(ALLOC_TAG, &outStreambuf);
 		});
 		transferHandle->WaitUntilFinished();
@@ -208,11 +210,13 @@ namespace Nebula
 		Aws::Transfer::TransferManagerConfiguration transferConfig;
 		transferConfig.s3Client = mClient;
 
+		std::shared_ptr<Aws::Transfer::TransferHandle> transferHandle;
+
 		transferConfig.uploadProgressCallback =
-			[&progress](const Aws::Transfer::TransferManager *transferManager, const Aws::Transfer::TransferHandle& handle)
+			[&progress, &transferHandle](const Aws::Transfer::TransferManager *transferManager, const Aws::Transfer::TransferHandle& handle)
 			{
 				if(!progress(handle.GetBytesTransferred(), handle.GetBytesTotalSize())) {
-					
+					transferHandle->Cancel();
 				}
 			};
 		Aws::Transfer::TransferManager transferManager(transferConfig);
@@ -241,7 +245,7 @@ namespace Nebula
 			stream.rewind();
 		}
 
-		auto transferHandle = transferManager.UploadFile(ioStream, mBucket, path, "application/octet-stream", metaData);
+		transferHandle = transferManager.UploadFile(ioStream, mBucket, path, "application/octet-stream", metaData);
 		transferHandle->WaitUntilFinished();
 
 		if(transferHandle->GetStatus() != Aws::Transfer::TransferStatus::COMPLETED)
