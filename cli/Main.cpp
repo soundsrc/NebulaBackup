@@ -57,7 +57,7 @@ static void printHelp()
 	printf("options:\n");
 	printf(" -q, --quiet              Run without output\n");
 	printf(" -b, --backend            Explicitly specify the backend\n");
-	printf("     --verify             Verify downloaded files\n");
+	printf("     --no-verify          Don't downloaded files\n");
 	printf(" -n, --dry-run            Dry-run\n");
 	printf(" -f, --force              Don't prompt for overwrite\n");
 	printf("\n");
@@ -88,7 +88,7 @@ struct Options
 
 	Options()
 	: quiet(false)
-	, verify(false)
+	, verify(true)
 	, dryRun(false)
 	, force(false) { }
 };
@@ -573,7 +573,7 @@ int main(int argc, char *argv[])
 		{ "help", no_argument, 0, 0 },
 		{ "quiet", no_argument, 0, 'q' },
 		{ "dry-run", no_argument, 0, 'n' },
-		{ "verify", no_argument, 0, 0 },
+		{ "no-verify", no_argument, 0, 0 },
 		{ "backend", required_argument, 0, 'b' },
 		{ 0, 0, 0, 0 }
 	};
@@ -583,8 +583,8 @@ int main(int argc, char *argv[])
 	while((c = getopt_long(argc, argv, "qnfb:", longOptions, &optIndex)) >= 0) {
 		switch (c) {
 			case 0:
-				if(strcmp(longOptions[optIndex].name, "verify") == 0) {
-					options.verify = true;
+				if(strcmp(longOptions[optIndex].name, "no-verify") == 0) {
+					options.verify = false;
 				}
 				break;
 			case 'q':
