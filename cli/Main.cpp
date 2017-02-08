@@ -307,6 +307,8 @@ static void backupFiles(const char *repository, const char *snapshotName, int ar
 	}
 
 	std::shared_ptr<Snapshot> snapshot(repo.createSnapshot());
+	
+	std::shared_ptr<Repository::PackUploadState> packState = repo.createPackState();
 	for(int i = 0; i < argc; ++i) {
 		if(filesystem::is_directory(argv[i])) {
 			filesystem::recursive_directory_iterator dirIterator(argv[i]);
@@ -323,7 +325,7 @@ static void backupFiles(const char *repository, const char *snapshotName, int ar
 						time_t startTime = time(nullptr);
 						FileStream fs(file.path().c_str(), FileMode::Read);
 						int lastBlockNo = 0;
-						repo.uploadFile(snapshot, file.path().c_str(), fs,
+						repo.uploadFile(packState, snapshot, file.path().c_str(), fs,
 							[&lastBlockNo, startTime](int blockNo, int blockMax, long bytesUploaded, long bytesTotal) -> bool {
 								if(lastBlockNo != blockNo) {
 									lastBlockNo = blockNo;
@@ -344,7 +346,7 @@ static void backupFiles(const char *repository, const char *snapshotName, int ar
 				time_t startTime = time(nullptr);
 				FileStream fs(argv[i], FileMode::Read);
 				int lastBlockNo = 0;
-				repo.uploadFile(snapshot, argv[i], fs,
+				repo.uploadFile(packState, snapshot, argv[i], fs,
 								[&lastBlockNo, startTime](int blockNo, int blockMax, long bytesDownloaded, long bytesTotal) -> bool {
 									if(lastBlockNo != blockNo) {
 										lastBlockNo = blockNo;
@@ -356,6 +358,8 @@ static void backupFiles(const char *repository, const char *snapshotName, int ar
 				if(!options.quiet) fputs("\n", stdout);
 			}
 		}
+		
+		repo.finalizePack(snapshot, packState);
 	}
 	
 	repo.commitSnapshot(snapshot, snapshotName);
