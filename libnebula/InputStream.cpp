@@ -30,6 +30,25 @@ namespace Nebula
 	{
 	}
 	
+	size_t InputStream::skip(size_t n)
+	{
+		uint8_t buffer[8192];
+		size_t skipped = 0;
+		while(skipped < n) {
+			size_t nextSkip = n - skipped;
+			if(nextSkip > sizeof(buffer)) {
+				nextSkip = sizeof(buffer);
+			}
+
+			size_t readBytes = read(buffer, nextSkip);
+			if(!readBytes) break;
+			
+			skipped += readBytes;
+		}
+		
+		return skipped;
+	}
+	
 	bool InputStream::canRewind() const
 	{
 		return false;

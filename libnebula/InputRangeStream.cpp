@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Sound <sound@sagaforce.com>
+ * Copyright (c) 2017 Sound <sound@sagaforce.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -13,54 +13,50 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-#include "MemoryInputStream.h"
-#include <string.h>
+
+#include "InputRangeStream.h"
+#include "InputStream.h"
 
 namespace Nebula
 {
-	MemoryInputStream::MemoryInputStream(const uint8_t *buffer, size_t size)
-	: mStart(buffer)
-	, mNext(buffer)
-	, mEnd(buffer + size)
+	InputRangeStream::InputRangeStream(InputStream& stream, long offset, long size)
+	: mStream(stream)
+	, mOffset(offset)
+	, mEndOffset(offset + size)
+	, mPosition(0)
 	{
+		mStream.skip(mOffset);
 	}
 	
-	size_t MemoryInputStream::read(void *data, size_t size)
+	size_t InputRangeStream::read(void *data, size_t size)
 	{
-		if(mNext >= mEnd) {
-			return 0;
-		}
-
-		if(size > mEnd - mNext) {
-			size = mEnd - mNext;
+		if(mPosition + size >= mEndOffset) {
+			size = mEndOffset - mPosition;
+			if(size == 0) return 0;
 		}
 		
-		memcpy(data, mNext, size);
-		mNext += size;
-
-		return size;
+		size_t n = mStream.read(data, size);
+		mPosition += n;
+		
+		return n;
 	}
 	
-	size_t MemoryInputStream::skip(size_t n)
+	bool InputRangeStream::canRewind() const
 	{
-		const uint8_t *cur = mNext;
-		mNext += n;
-		if(mNext >= mEnd) mNext = mEnd;
-		return mNext - cur;
+		return mStream.canRewind();
 	}
 	
-	bool MemoryInputStream::canRewind() const
+	void InputRangeStream::rewind()
 	{
-		return true;
+		if(canRewind()) {
+			mStream.rewind();
+			mStream.skip(mOffset);
+			mPosition = 0;
+		}
 	}
 	
-	void MemoryInputStream::rewind()
+	long InputRangeStream::size() const
 	{
-		mNext = mStart;
-	}
-	
-	long MemoryInputStream::size() const
-	{
-		return mEnd - mStart;
+		return mEndOffset - mOffset;
 	}
 }

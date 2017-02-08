@@ -39,6 +39,12 @@ namespace Nebula
 		 */
 		virtual size_t read(void *data, size_t size) = 0;
 
+
+		/**
+		 * Skips ahead @a n bytes
+		 */
+		virtual size_t skip(size_t n);
+
 		/**
 		 * Closes the input stream.
 		 * Calling close() manually is generally not required.

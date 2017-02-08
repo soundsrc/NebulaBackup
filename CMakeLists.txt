@@ -161,6 +161,8 @@ add_library(Nebula SHARED
 	"libnebula/FileInfo.h"
 	"libnebula/FileStream.cpp"
 	"libnebula/FileStream.h"
+	"libnebula/InputRangeStream.cpp"
+	"libnebula/InputRangeStream.h"
 	"libnebula/InputStream.cpp"
 	"libnebula/InputStream.h"
 	"libnebula/LZMAInputStream.cpp"

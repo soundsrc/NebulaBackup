@@ -21,9 +21,8 @@ namespace Nebula
 	: mStreamList(l)
 	, mCurStream(mStreamList.begin())
 	{
-		
 	}
-	
+
 	MultiInputStream::MultiInputStream(std::initializer_list<InputStream *> l)
 	: mStreamList(l)
 	, mCurStream(mStreamList.begin())

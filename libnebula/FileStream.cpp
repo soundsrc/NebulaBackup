@@ -125,6 +125,25 @@ error:
 		return n;
 	}
 	
+	size_t FileStream::skip(size_t size)
+	{
+		long startPos = ftell(mFp);
+		if(startPos < 0) {
+			throw FileIOException("Failed to determine file position.");
+		}
+
+		if(fseek(mFp, size, SEEK_CUR) < 0) {
+			throw FileIOException("Failed to see to offset.");
+		}
+		
+		long endPos = ftell(mFp);
+		if(endPos < 0) {
+			throw FileIOException("Failed to determine file position.");
+		}
+		
+		return endPos - startPos;
+	}
+
 	void FileStream::write(const void *data, size_t size)
 	{
 		size_t n = fwrite(data, 1, size, mFp);

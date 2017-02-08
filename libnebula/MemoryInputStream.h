@@ -34,6 +34,7 @@ namespace Nebula
 		virtual long size() const override;
 
 		virtual size_t read(void *data, size_t size) override;
+		virtual size_t skip(size_t n) override;
 		
 		virtual bool canRewind() const override;
 		virtual void rewind() override;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Sound <sound@sagaforce.com>
+ * Copyright (c) 2017 Sound <sound@sagaforce.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,41 +16,37 @@
 
 #pragma once
 
-#include <string>
-#include <stdio.h>
 #include "InputStream.h"
-#include "OutputStream.h"
 
 namespace Nebula
 {
-	enum class FileMode
-	{
-		Read,
-		Write,
-		ReadWrite
-	};
-	class FileStream : public InputStream, public OutputStream
+	class InputRangeStream : public InputStream
 	{
 	public:
-		FileStream();
-		FileStream(const char *path, FileMode mode);
-		~FileStream();
+		InputRangeStream(InputStream& stream, long offset, long size);
 		
-		bool open(const char *path, FileMode mode);
-		virtual long size() const override;
-		
-		const std::string& path() const { return mPath; }
-
-		virtual bool canRewind() const override;
-		virtual void rewind() override;
-		long seek(long offset);
 		virtual size_t read(void *data, size_t size) override;
-		virtual size_t skip(size_t size) override;
-		virtual void write(const void *data, size_t size) override;
-		virtual void flush() override;
-		virtual void close() override;
+
+		/**
+		 * True if the stream can be rewind
+		 */
+		virtual bool canRewind() const override;
+		
+		/**
+		 * Rewinds the stream to the beginning, if supported.
+		 */
+		virtual void rewind() override;
+		
+		/**
+		 * Returns the size of the input stream if available.
+		 * Returns -1 if not available
+		 */
+		virtual long size() const override;
 	private:
-		FILE *mFp;
-		std::string mPath;
+		InputStream& mStream;
+		long mOffset;
+		long mEndOffset;
+		long mPosition;
+
 	};
 }
