@@ -23,7 +23,7 @@ namespace Nebula
 	: mStream(stream)
 	, mOffset(offset)
 	, mEndOffset(offset + size)
-	, mPosition(0)
+	, mPosition(offset)
 	{
 		mStream.skip(mOffset);
 	}
@@ -31,10 +31,10 @@ namespace Nebula
 	size_t InputRangeStream::read(void *data, size_t size)
 	{
 		if(mPosition + size >= mEndOffset) {
-			size = mEndOffset - mPosition;
+			size = mEndOffset - mOffset;
 			if(size == 0) return 0;
 		}
-		
+
 		size_t n = mStream.read(data, size);
 		mPosition += n;
 		
@@ -51,7 +51,7 @@ namespace Nebula
 		if(canRewind()) {
 			mStream.rewind();
 			mStream.skip(mOffset);
-			mPosition = 0;
+			mPosition = mOffset;
 		}
 	}
 	
