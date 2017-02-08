@@ -31,7 +31,7 @@ namespace Nebula
 	size_t InputRangeStream::read(void *data, size_t size)
 	{
 		if(mPosition + size >= mEndOffset) {
-			size = mEndOffset - mOffset;
+			size = mEndOffset - mPosition;
 			if(size == 0) return 0;
 		}
 
