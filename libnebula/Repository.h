@@ -62,6 +62,9 @@ namespace Nebula
 			Options();
 		};
 		
+		struct PackUploadState;
+		struct PackFileInfo;
+
 		/**
 		 * Creates a new instance of repository, supplying a backend data store.
 		 * If the repository is an existing repository, then you should call
@@ -127,6 +130,9 @@ namespace Nebula
 		 */
 		bool downloadFile(std::shared_ptr<Snapshot> snapshot, const char *srcPath, OutputStream& fileStream, FileTransferProgressFunction progress = DefaultFileTransferProgressFunction);
 
+		std::shared_ptr<PackUploadState> createPackState();
+		void uploadFile(std::shared_ptr<PackUploadState> packUploadState, std::shared_ptr<Snapshot> snapshot, const char *destPath, FileStream& fileStream, FileTransferProgressFunction progress = DefaultFileTransferProgressFunction);
+		void finalizePack(std::shared_ptr<Snapshot> snapshot, std::shared_ptr<PackUploadState> uploadPackState, FileTransferProgressFunction progress = DefaultFileTransferProgressFunction);
 		
 		/**
 		 * Commits the snapshot to the repository.

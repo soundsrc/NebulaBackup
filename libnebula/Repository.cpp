@@ -46,10 +46,99 @@ extern "C" {
 #include "LZMAUtils.h"
 #include "CompressionType.h"
 #include "Snapshot.h"
+#include "InputRangeStream.h"
 #include "StreamUtils.h"
 
 namespace Nebula
 {
+	struct Repository::PackFileInfo
+	{
+		std::string path;
+		std::string user;
+		std::string group;
+		FileType type;
+		uint16_t mode;
+		CompressionType compression;
+		uint64_t size;
+		time_t mtime;
+		uint8_t rollingHashBits;
+		uint8_t md5[MD5_DIGEST_LENGTH];
+		uint32_t offset;
+		uint32_t packLength;
+		Snapshot::ObjectID objectId;
+	};
+	
+	struct Repository::PackUploadState
+	{
+		HMAC_CTX hmac;
+		std::vector<PackFileInfo> fileInfos;
+		std::vector<std::vector<uint8_t>> packData;
+		std::unique_ptr<RollingHash> rollingHash;
+
+		PackUploadState();
+		~PackUploadState();
+
+		void addFile(const uint8_t *data,
+					 size_t sizeData,
+					 const std::string& path,
+					 const std::string& user,
+					 const std::string& group,
+					 FileType type,
+					 uint16_t mode,
+					 CompressionType compression,
+					 uint64_t size,
+					 time_t mtime,
+					 uint8_t rollingHashBits,
+					 const uint8_t *md5);
+	};
+	
+	Repository::PackUploadState::PackUploadState()
+	{
+		HMAC_CTX_init(&hmac);
+	}
+	
+	Repository::PackUploadState::~PackUploadState()
+	{
+		HMAC_CTX_cleanup(&hmac);
+	}
+	
+	void Repository::PackUploadState::addFile(const uint8_t *data,
+								  size_t sizeData,
+								  const std::string& path,
+								  const std::string& user,
+								  const std::string& group,
+								  FileType type,
+								  uint16_t mode,
+								  CompressionType compression,
+								  uint64_t size,
+								  time_t mtime,
+								  uint8_t rollingHashBits,
+								  const uint8_t *md5)
+	{
+		if(!HMAC_Update(&hmac, data, sizeData)) {
+			throw EncryptionFailedException("HMAC_Update failed.");
+		}
+		
+		Repository::PackFileInfo pi;
+		pi.path = path;
+		pi.user = user;
+		pi.group = group;
+		pi.type = type;
+		pi.mode = mode;
+		pi.compression = compression;
+		pi.size = size;
+		pi.mtime = mtime;
+		pi.rollingHashBits = rollingHashBits;
+		memcpy(pi.md5, md5, MD5_DIGEST_LENGTH);
+		pi.offset = packData.size();
+		
+		this->fileInfos.push_back(pi);
+		std::vector<uint8_t> buffer;
+		buffer.reserve(sizeData);
+		std::copy(data, data + sizeData, std::back_inserter(buffer));
+		this->packData.push_back(std::move(buffer));
+	}
+	
 	Repository::Options::Options()
 	: smallFileSize(512000)
 	, maxBlockSize(50000000)
@@ -288,6 +377,11 @@ namespace Nebula
 		mDataStore->put(uploadPath.c_str(), *encryptedStream, progress);
 	}
 	
+	std::shared_ptr<Repository::PackUploadState> Repository::createPackState()
+	{
+		return std::make_shared<PackUploadState>();
+	}
+	
 	void Repository::uploadFile(std::shared_ptr<Snapshot> snapshot, const char *destPath, FileStream& fileStream, FileTransferProgressFunction progress)
 	{
 		uploadFile(nullptr, snapshot, destPath, fileStream);
@@ -342,15 +436,16 @@ namespace Nebula
 			compressionType = CompressionType::NoCompression;
 		}
 
+		// normalize destPath
+		filesystem::path normalizedPath = filesystem::path(destPath).relative_path().lexically_normal();
+
 		// don't bother with splitting the file if it's < 1MB
 		// just upload as is
 		if(fileLength < mOptions.smallFileSize) {
 			
 			std::unique_ptr<uint8_t, decltype(free) *> buffer( (uint8_t *)malloc(fileLength), free );
 
-			if(fileStream.read(buffer.get(), fileLength) != fileLength) {
-				throw FileIOException("Failed to read file.");
-			}
+			fileStream.readExpected(buffer.get(), fileLength);
 			
 			if(!EVP_DigestUpdate(&md5, buffer.get(), fileLength)) {
 				throw EncryptionFailedException("EVP_DigestUpdate failed.");
@@ -358,11 +453,60 @@ namespace Nebula
 			
 			Snapshot::ObjectID objectId;
 			computeBlockHMAC(buffer.get(), fileLength, (uint8_t)compressionType, objectId.id);
-			compressEncryptAndUploadBlock(compressionType, objectId, buffer.get(), fileLength,
-										  [&progress](long bytesUploaded, long bytesTotal) -> bool {
-											  return progress(0, 1, bytesUploaded, bytesTotal);
-										  });
-			objectIds.push_back(objectId);
+			
+			
+			if(packUploadState) {
+				bool writePack = false;
+
+				if(!packUploadState->rollingHash) {
+					packUploadState->rollingHash.reset(new RollingHash(mRollKey, 8192));
+					if(!HMAC_Init(&packUploadState->hmac, mHashKey, SHA256_DIGEST_LENGTH, EVP_sha256())) {
+						throw EncryptionFailedException("HMAC_Init failed.");
+					}
+				}
+
+				HMAC_Update(&packUploadState->hmac, buffer.get(), fileLength);
+				const uint8_t *bufPtr = buffer.get();
+				const uint8_t *bufEnd = bufPtr + fileLength;
+				RollingHash& rollingHash = *packUploadState->rollingHash;
+				while (bufPtr < bufEnd) {
+					if((rollingHash.roll(*bufPtr++) & ((1 << 20) - 1)) == 0) {
+						writePack = true;
+					}
+				}
+
+				uint8_t md5[MD5_DIGEST_LENGTH];
+				MD5(buffer.get(), fileLength, md5);
+
+				packUploadState->addFile(buffer.get(),
+										 fileLength,
+										 normalizedPath.string(),
+										 fileInfo.userName(),
+										 fileInfo.groupName(),
+										 fileInfo.type(),
+										 fileInfo.mode(),
+										 compressionType,
+										 fileInfo.length(),
+										 fileInfo.lastModifyTime(),
+										 0,
+										 md5);
+				
+				if(writePack) {
+					finalizePack(snapshot, packUploadState, progress);
+				} else {
+					if(!progress(0, 1, 0, 0)) {
+						throw CancelledException("User cancelled.");
+					}
+				}
+				
+				return;
+			} else {
+				compressEncryptAndUploadBlock(compressionType, objectId, buffer.get(), fileLength,
+											  [&progress](long bytesUploaded, long bytesTotal) -> bool {
+												  return progress(0, 1, bytesUploaded, bytesTotal);
+											  });
+				objectIds.push_back(objectId);
+			}
 			
 		} else {
 			
@@ -430,9 +574,6 @@ namespace Nebula
 			throw EncryptionFailedException("EVP_DigestFinal failed.");
 		}
 		
-		// normalize destPath
-		filesystem::path normalizedPath = filesystem::path(destPath).relative_path().lexically_normal();
-		
 		// update the index
 		snapshot->addFileEntry(normalizedPath.c_str(),
 							   fileInfo.userName().c_str(),
@@ -450,7 +591,72 @@ namespace Nebula
 							   &objectIds[0]);
 	}
 	
-	bool Repository::downloadFile(Snapshot *snapshot, const char *srcPath, OutputStream& fileStream, FileTransferProgressFunction progress)
+	void Repository::finalizePack(std::shared_ptr<Snapshot> snapshot, std::shared_ptr<PackUploadState> uploadPackState, FileTransferProgressFunction progress)
+	{
+		if(!uploadPackState->rollingHash) {
+			return;
+		}
+
+		Snapshot::ObjectID objectId;
+		if(!HMAC_Final(&uploadPackState->hmac, objectId.id, nullptr)) {
+			throw EncryptionFailedException("HMAC_Final failed.");
+		}
+		
+		int numObjects = uploadPackState->fileInfos.size();
+		std::string objPath = "/data/" + objectIdToString(objectId);
+		if(!mDataStore->exist(objPath.c_str())) {
+			std::vector<std::shared_ptr<InputStream>> inStreamList;
+			std::vector<InputStream *> inStreamListPtr;
+			inStreamList.reserve(numObjects);
+			uint32_t offset = 0;
+			for(int i = 0; i < numObjects; ++i)
+			{
+				PackFileInfo& fi = uploadPackState->fileInfos[i];
+				const std::vector<uint8_t>& data = uploadPackState->packData[i];
+				
+				MemoryInputStream stream(&data[0], data.size());
+				auto encryptedStream = StreamUtils::compressEncryptHMAC(fi.compression, EVP_aes_256_cbc(), mEncKey, mMacKey, stream);
+				inStreamList.push_back(encryptedStream);
+				inStreamListPtr.push_back(encryptedStream.get());
+				
+				fi.offset = offset;
+				fi.packLength = encryptedStream->size();
+
+				offset += fi.packLength;
+			}
+			
+			
+			MultiInputStream multiStream(inStreamListPtr);
+			mDataStore->put(objPath.c_str(), multiStream);
+		}
+
+		
+		for(int i = 0; i < numObjects; ++i)
+		{
+			const PackFileInfo& fi = uploadPackState->fileInfos[i];
+
+			snapshot->addFileEntry(fi.path.c_str(),
+								   fi.user.c_str(),
+								   fi.group.c_str(),
+								   fi.type,
+								   fi.mode,
+								   fi.compression,
+								   fi.size,
+								   fi.mtime,
+								   fi.rollingHashBits,
+								   fi.md5,
+								   fi.offset,
+								   fi.packLength,
+								   1,
+								   &objectId);
+		}
+		
+		uploadPackState->fileInfos.clear();
+		uploadPackState->packData.clear();
+		uploadPackState->rollingHash.reset();
+	}
+	
+	bool Repository::downloadFile(std::shared_ptr<Snapshot> snapshot, const char *srcPath, OutputStream& fileStream, FileTransferProgressFunction progress)
 	{
 		using namespace boost;
 
@@ -470,7 +676,14 @@ namespace Nebula
 								return progress(i, fe->objectCount, bytesDownloaded, bytesTotal);
 							});
 
-			StreamUtils::decompressDecryptHMAC((CompressionType)fe->compression, EVP_aes_256_cbc(), mEncKey, mMacKey, *tmpStream.inputStream(), fileStream);
+			auto downloadedStream = tmpStream.inputStream();
+			
+			if(fe->packLength > 0) {
+				InputRangeStream rangeStream(*downloadedStream, fe->offset, fe->packLength);
+				StreamUtils::decompressDecryptHMAC((CompressionType)fe->compression, EVP_aes_256_cbc(), mEncKey, mMacKey, rangeStream, fileStream);
+			} else {
+				StreamUtils::decompressDecryptHMAC((CompressionType)fe->compression, EVP_aes_256_cbc(), mEncKey, mMacKey, *downloadedStream, fileStream);
+			}
 		}
 		
 		return true;
