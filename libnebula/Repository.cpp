@@ -444,7 +444,8 @@ namespace Nebula
 							   fileInfo.lastModifyTime(),
 							   rollingHashBits,
 							   fileMD5,
-							   0, // 0 for now, not supported
+							   0,
+							   0,
 							   objectIds.size(),
 							   &objectIds[0]);
 	}

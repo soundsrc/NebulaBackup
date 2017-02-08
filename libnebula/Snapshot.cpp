@@ -57,6 +57,7 @@ namespace Nebula
 					  uint8_t rollingHashBits,
 					  const uint8_t *md5,
 					  uint32_t offset,
+					  uint32_t packLength,
 					  int objectCount,
 					  const ObjectID *objectIds)
 	{
@@ -84,6 +85,7 @@ namespace Nebula
 		memcpy(fe.md5, md5, MD5_DIGEST_LENGTH);
 		fe.objectCount = objectCount;
 		fe.offset = offset;
+		fe.packLength = packLength;
 		fe.objectIdIndex = addObjectIds(objectIds, objectCount);
 		mFiles.insert(std::make_pair(path, fe));
 	}
@@ -179,6 +181,7 @@ namespace Nebula
 			fe.mtime = inStream.readType<uint64_t>();
 			inStream.readExpected(fe.md5, MD5_DIGEST_LENGTH);
 			fe.offset = inStream.readType<uint32_t>();
+			fe.packLength = inStream.readType<uint32_t>();
 			fe.objectIdIndex = inStream.readType<uint32_t>();
 			
 			std::string path = std::string(indexToString(fe.pathIndex)) + "/" + indexToString(fe.nameIndex);
@@ -220,6 +223,7 @@ namespace Nebula
 			outStream.writeType<uint64_t>(fe.mtime);
 			outStream.write(fe.md5, MD5_DIGEST_LENGTH);
 			outStream.writeType<uint32_t>(fe.offset);
+			outStream.writeType<uint32_t>(fe.packLength);
 			outStream.writeType<uint32_t>(fe.objectIdIndex);
 		}
 	}

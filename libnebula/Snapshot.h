@@ -66,6 +66,7 @@ namespace Nebula
 			uint16_t objectCount;
 			uint8_t md5[MD5_DIGEST_LENGTH];
 			uint32_t offset;
+			uint32_t packLength;
 			uint32_t objectIdIndex;
 		};
 
@@ -80,6 +81,7 @@ namespace Nebula
 						  uint8_t rollingHashBits,
 						  const uint8_t *md5,
 						  uint32_t offset,
+						  uint32_t packLength,
 						  int objectCount,
 						  const ObjectID *objectIds);
 

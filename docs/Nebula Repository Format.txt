@@ -54,6 +54,7 @@ Nebula Repository Format
 			mtime           u64      Last modify time
 			md5             u8[16]   MD5 of file
 			offset			u32      Offset into the first block
+			packLength		u32      If > 0, then the length of the encrypted object
 			objectIdIndex   u32      Index to the block table
 		}
 	}
