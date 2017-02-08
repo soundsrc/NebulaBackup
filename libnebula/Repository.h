@@ -107,31 +107,31 @@ namespace Nebula
 		/**
 		 * Creates a new snapshot. A snapshot is a collection of file.
 		 */
-		Snapshot *createSnapshot();
+		std::shared_ptr<Snapshot> createSnapshot();
 		
 		/**
 		 * Creates a snapshot based on an existing snapshot.
 		 * Useful for making incremental backups.
 		 */
-		Snapshot *loadSnapshot(const char *name, ProgressFunction progress = DefaultProgressFunction);
+		std::shared_ptr<Snapshot> loadSnapshot(const char *name, ProgressFunction progress = DefaultProgressFunction);
 
 		/**
 		 * Uploads a file to the repository. Adds the entry to the snapshot.
 		 * Until a snapshot is committed, it is loose file which may be
 		 * compacted via the compactRepository() method.
 		 */
-		void uploadFile(Snapshot *snapshot, const char *destPath, FileStream& fileStream, FileTransferProgressFunction progress = DefaultFileTransferProgressFunction);
+		void uploadFile(std::shared_ptr<Snapshot> snapshot, const char *destPath, FileStream& fileStream, FileTransferProgressFunction progress = DefaultFileTransferProgressFunction);
 		
 		/**
 		 * Downloads a file to the output stream.
 		 */
-		bool downloadFile(Snapshot *snapshot, const char *srcPath, OutputStream& fileStream, FileTransferProgressFunction progress = DefaultFileTransferProgressFunction);
-		
+		bool downloadFile(std::shared_ptr<Snapshot> snapshot, const char *srcPath, OutputStream& fileStream, FileTransferProgressFunction progress = DefaultFileTransferProgressFunction);
+
 		
 		/**
 		 * Commits the snapshot to the repository.
 		 */
-		void commitSnapshot(Snapshot *snapshot, const char *name, ProgressFunction progress = DefaultProgressFunction);
+		void commitSnapshot(std::shared_ptr<Snapshot> snapshot, const char *name, ProgressFunction progress = DefaultProgressFunction);
 
 	private:
 		enum { MAX_LOG_ROUNDS = 31 };

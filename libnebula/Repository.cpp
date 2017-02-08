@@ -45,6 +45,7 @@ extern "C" {
 #include "MemoryInputStream.h"
 #include "LZMAUtils.h"
 #include "CompressionType.h"
+#include "Snapshot.h"
 #include "StreamUtils.h"
 
 namespace Nebula
@@ -220,14 +221,14 @@ namespace Nebula
 		mDataStore->list("/snapshot", [&callback](const char *snapshot, void *) { callback(snapshot); }, nullptr, progress);
 	}
 	
-	Snapshot *Repository::createSnapshot()
+	std::shared_ptr<Snapshot> Repository::createSnapshot()
 	{
-		return new Snapshot();
+		return std::make_shared<Snapshot>();
 	}
 	
-	Snapshot *Repository::loadSnapshot(const char *name, ProgressFunction progress)
+	std::shared_ptr<Snapshot> Repository::loadSnapshot(const char *name, ProgressFunction progress)
 	{
-		std::unique_ptr<Snapshot> snapshot(new Snapshot());
+		std::shared_ptr<Snapshot> snapshot(std::make_shared<Snapshot>());
 		
 		TempFileStream tmpSnapshotStream;
 		mDataStore->get((std::string("/snapshot/") + name).c_str(), tmpSnapshotStream, progress);
@@ -236,10 +237,10 @@ namespace Nebula
 		StreamUtils::decompressDecryptHMAC(CompressionType::LZMA2, EVP_aes_256_cbc(), mEncKey, mMacKey, *tmpSnapshotStream.inputStream(), snapshotStream);
 		snapshot->load(*snapshotStream.inputStream());
 		
-		return snapshot.release();
+		return snapshot;
 	}
 	
-	void Repository::commitSnapshot(Snapshot *snapshot, const char *name, ProgressFunction progress)
+	void Repository::commitSnapshot(std::shared_ptr<Snapshot> snapshot, const char *name, ProgressFunction progress)
 	{
 		TempFileStream tmpStream;
 		snapshot->save(tmpStream);
@@ -287,7 +288,12 @@ namespace Nebula
 		mDataStore->put(uploadPath.c_str(), *encryptedStream, progress);
 	}
 	
-	void Repository::uploadFile(Snapshot *snapshot, const char *destPath, FileStream& fileStream, FileTransferProgressFunction progress)
+	void Repository::uploadFile(std::shared_ptr<Snapshot> snapshot, const char *destPath, FileStream& fileStream, FileTransferProgressFunction progress)
+	{
+		uploadFile(nullptr, snapshot, destPath, fileStream);
+	}
+
+	void Repository::uploadFile(std::shared_ptr<PackUploadState> packUploadState, std::shared_ptr<Snapshot> snapshot, const char *destPath, FileStream& fileStream, FileTransferProgressFunction progress)
 	{
 		using namespace boost;
 		

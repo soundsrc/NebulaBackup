@@ -306,7 +306,7 @@ static void backupFiles(const char *repository, const char *snapshotName, int ar
 		throw RepositoryException("Unable to unlock repository. Password was incorrect.");
 	}
 
-	std::unique_ptr<Snapshot> snapshot(repo.createSnapshot());
+	std::shared_ptr<Snapshot> snapshot(repo.createSnapshot());
 	for(int i = 0; i < argc; ++i) {
 		if(filesystem::is_directory(argv[i])) {
 			filesystem::recursive_directory_iterator dirIterator(argv[i]);
@@ -323,7 +323,7 @@ static void backupFiles(const char *repository, const char *snapshotName, int ar
 						time_t startTime = time(nullptr);
 						FileStream fs(file.path().c_str(), FileMode::Read);
 						int lastBlockNo = 0;
-						repo.uploadFile(snapshot.get(), file.path().c_str(), fs,
+						repo.uploadFile(snapshot, file.path().c_str(), fs,
 							[&lastBlockNo, startTime](int blockNo, int blockMax, long bytesUploaded, long bytesTotal) -> bool {
 								if(lastBlockNo != blockNo) {
 									lastBlockNo = blockNo;
@@ -344,7 +344,7 @@ static void backupFiles(const char *repository, const char *snapshotName, int ar
 				time_t startTime = time(nullptr);
 				FileStream fs(argv[i], FileMode::Read);
 				int lastBlockNo = 0;
-				repo.uploadFile(snapshot.get(), argv[i], fs,
+				repo.uploadFile(snapshot, argv[i], fs,
 								[&lastBlockNo, startTime](int blockNo, int blockMax, long bytesDownloaded, long bytesTotal) -> bool {
 									if(lastBlockNo != blockNo) {
 										lastBlockNo = blockNo;
@@ -358,7 +358,7 @@ static void backupFiles(const char *repository, const char *snapshotName, int ar
 		}
 	}
 	
-	repo.commitSnapshot(snapshot.get(), snapshotName);
+	repo.commitSnapshot(snapshot, snapshotName);
 }
 
 static void listSnapshots(const char *repository)
@@ -394,7 +394,7 @@ static void listSnapshot(const char *repository, const char *snapshotName)
 		throw RepositoryException("Unable to unlock repository. Password was incorrect.");
 	}
 	
-	std::unique_ptr<Snapshot> snapshot(repo.loadSnapshot(snapshotName));
+	std::shared_ptr<Snapshot> snapshot(repo.loadSnapshot(snapshotName));
 	snapshot->forEachFileEntry([&snapshot] (const Snapshot::FileEntry &fe) {
 		const char *user = snapshot->indexToString(fe.userIndex);
 		const char *group = snapshot->indexToString(fe.groupIndex);
@@ -456,7 +456,7 @@ static void downloadFiles(const char *repository, const char *snapshotName, int 
 		throw RepositoryException("Invalid password.");
 	}
 	
-	std::unique_ptr<Snapshot> snapshot(repo.loadSnapshot(snapshotName));
+	std::shared_ptr<Snapshot> snapshot(repo.loadSnapshot(snapshotName));
 	for(int i = 0; i < argc - 1; ++i) {
 		const char * srcFile = argv[i];
 
@@ -492,7 +492,7 @@ static void downloadFiles(const char *repository, const char *snapshotName, int 
 					time_t startTime = time(nullptr);
 					FileStream outStream(filePath.c_str(), FileMode::Write);
 					int lastBlockNo = 0;
-					repo.downloadFile(snapshot.get(), (path + "/" + name).c_str(), outStream,
+					repo.downloadFile(snapshot, (path + "/" + name).c_str(), outStream,
 						[startTime, &lastBlockNo](int blockNo, int blockCount, long bytesDownloaded, long bytesTotal) -> bool {
 							if(lastBlockNo != blockNo) {
 								lastBlockNo = blockNo;

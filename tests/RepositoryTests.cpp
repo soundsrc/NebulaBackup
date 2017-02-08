@@ -96,7 +96,7 @@ TEST(RepositoryTests, SmallFileUploadTest)
 		
 		EXPECT_NO_THROW(repo.initializeRepository("@&*^%#bh1237"));
 		
-		std::unique_ptr<Snapshot> snapshot(repo.createSnapshot());
+		std::shared_ptr<Snapshot> snapshot(repo.createSnapshot());
 		
 		uint8_t randomData1[8197], randomData2[8197];
 		arc4random_buf(randomData1, sizeof(randomData1));
@@ -112,11 +112,11 @@ TEST(RepositoryTests, SmallFileUploadTest)
 			fclose(fp);
 		
 			FileStream fs(tmpFile.c_str(), FileMode::Read);
-			EXPECT_NO_THROW(repo.uploadFile(snapshot.get(), "/random/path/to/file", fs));
+			EXPECT_NO_THROW(repo.uploadFile(snapshot, "/random/path/to/file", fs));
 			
 			MemoryOutputStream readStream(randomData2, sizeof(randomData2));
-			EXPECT_FALSE(repo.downloadFile(snapshot.get(), "/not/exist", readStream));
-			EXPECT_TRUE(repo.downloadFile(snapshot.get(), "random/path/to/file", readStream));
+			EXPECT_FALSE(repo.downloadFile(snapshot, "/not/exist", readStream));
+			EXPECT_TRUE(repo.downloadFile(snapshot, "random/path/to/file", readStream));
 			EXPECT_TRUE(memcmp(randomData1, randomData2, sizeof(randomData1)) == 0);
 		}
 	}
@@ -141,7 +141,7 @@ TEST(RepositoryTests, LargeFileUploadTest)
 		
 		EXPECT_NO_THROW(repo.initializeRepository("@&*^%#bh1237"));
 		
-		std::unique_ptr<Snapshot> snapshot(repo.createSnapshot());
+		std::shared_ptr<Snapshot> snapshot(repo.createSnapshot());
 		
 		std::vector<uint8_t> randomData1, randomData2;
 		randomData1.resize(4 * 1024 * 1024); // 4MB?
@@ -158,12 +158,12 @@ TEST(RepositoryTests, LargeFileUploadTest)
 			fclose(fp);
 			
 			FileStream fs(tmpFile.c_str(), FileMode::Read);
-			EXPECT_NO_THROW(repo.uploadFile(snapshot.get(), "/random/path/to/file", fs));
+			EXPECT_NO_THROW(repo.uploadFile(snapshot, "/random/path/to/file", fs));
 			
 			randomData2.resize(4 * 1024 * 1024);
 			MemoryOutputStream readStream(&randomData2[0], randomData2.size());
-			EXPECT_FALSE(repo.downloadFile(snapshot.get(), "/not/exist", readStream));
-			EXPECT_TRUE(repo.downloadFile(snapshot.get(), "random/path/to/file", readStream));
+			EXPECT_FALSE(repo.downloadFile(snapshot, "/not/exist", readStream));
+			EXPECT_TRUE(repo.downloadFile(snapshot, "random/path/to/file", readStream));
 			EXPECT_TRUE(memcmp(&randomData1[0], &randomData2[0], randomData1.size()) == 0);
 		}
 	}
@@ -188,7 +188,7 @@ TEST(RepositoryTests, SnapshotTest)
 		
 		EXPECT_NO_THROW(repo.initializeRepository("803487"));
 		
-		std::unique_ptr<Snapshot> snapshot(repo.createSnapshot());
+		std::shared_ptr<Snapshot> snapshot(repo.createSnapshot());
 		
 		path tmpFile = unique_path();
 		std::unique_ptr<path, std::function<void (path *)>>
@@ -199,15 +199,15 @@ TEST(RepositoryTests, SnapshotTest)
 		fout.close();
 		
 		FileStream fin(tmpFile.c_str(), FileMode::Read);
-		repo.uploadFile(snapshot.get(), "/file1", fin);
+		repo.uploadFile(snapshot, "/file1", fin);
 		fin.rewind();
-		repo.uploadFile(snapshot.get(), "/file2", fin);
+		repo.uploadFile(snapshot, "/file2", fin);
 		fin.rewind();
-		repo.uploadFile(snapshot.get(), "/file3", fin);
+		repo.uploadFile(snapshot, "/file3", fin);
 		
-		EXPECT_NO_THROW(repo.commitSnapshot(snapshot.get(), "test-snapshot"));
+		EXPECT_NO_THROW(repo.commitSnapshot(snapshot, "test-snapshot"));
 		
-		std::unique_ptr<Snapshot> loadedSnapshot (repo.loadSnapshot("test-snapshot", DefaultProgressFunction));
+		std::shared_ptr<Snapshot> loadedSnapshot (repo.loadSnapshot("test-snapshot", DefaultProgressFunction));
 		EXPECT_TRUE(loadedSnapshot->getFileEntry("/file1"));
 		EXPECT_TRUE(loadedSnapshot->getFileEntry("/file2"));
 		EXPECT_TRUE(loadedSnapshot->getFileEntry("/file3"));
